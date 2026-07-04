@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<title>You're Invited — AR Betel Leaf Invitation</title>
+<meta name="description" content="Hold up a betel leaf and see the invitation appear on it." />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <video id="camera" playsinline autoplay muted></video>
+  <canvas id="stage"></canvas>
+
+  <div id="overlay">
+    <h1>An Invitation Awaits</h1>
+    <p>
+      Hold a betel leaf on your palm and point your camera at it.
+      The invitation will appear right on the leaf.
+    </p>
+    <button id="startBtn">Open Camera</button>
+    <button id="testBtn" class="secondary">Preview without camera</button>
+  </div>
+
+  <div id="errorBox" hidden></div>
+  <p id="hint" hidden>Show the betel leaf on your palm to the camera</p>
+
+  <div id="controls">
+    <button id="switchBtn" class="secondary">Switch Camera</button>
+    <button id="snapBtn" class="secondary">Save Snapshot</button>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/leaf-detect.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
