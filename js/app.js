@@ -14,13 +14,29 @@
   let facingMode = "environment";
   let testMode = false;
   let running = false;
+  let lastTime = 0;
 
   // Smoothed leaf box, in normalized [0,1] coords, plus a confidence/visibility value
   const smooth = { cx: 0.5, cy: 0.5, w: 0.4, h: 0.4, visible: 0 };
   const SMOOTH_ALPHA = 0.18;
 
+  // Writing-reveal animation state: restarts each time the leaf reappears
+  // after being hidden, so the invitation "writes itself" anew each time.
+  let revealStart = null;
+  let wasHidden = true;
+  const HIDE_THRESHOLD = 0.12;
+  const SHOW_TRIGGER_THRESHOLD = 0.55;
+  const MS_PER_CHAR = 42;
+  const MIN_LINE_MS = 260;
+
+  const CURSIVE_FONT = "'Brush Script MT', 'Segoe Script', 'Lucida Handwriting', cursive";
+  const SERIF_FONT = "Georgia, 'Times New Roman', serif";
+
   function lerp(a, b, t) {
     return a + (b - a) * t;
+  }
+  function clamp01(v) {
+    return Math.max(0, Math.min(1, v));
   }
 
   async function startCamera() {
@@ -71,7 +87,7 @@
   }
 
   // Wraps by actual measured pixel width for the font currently set on ctx,
-  // so bold/italic serif glyphs (which run wider than a char-count estimate)
+  // so script/serif glyphs (which run wider than a char-count estimate)
   // never overflow the ellipse they're clipped to.
   function wrapLines(text, maxWidthPx) {
     const words = text.split(" ");
@@ -90,7 +106,101 @@
     return lines;
   }
 
-  function drawInvitationOnLeaf(cx, cy, w, h) {
+  // Lays out the invitation blocks into individual lines with resolved font
+  // size, family and vertical position, but does not paint anything yet.
+  function layoutInvitation(cx, cy, rx, ry) {
+    const unit = ry * 2;
+    const maxWidthPx = rx * 2 * 0.78;
+    const blocks = [
+      { text: INVITE_CONFIG.greeting, size: 0.075, weight: "400", family: CURSIVE_FONT, gap: 0.1 },
+      { text: INVITE_CONFIG.eventName, size: 0.12, weight: "700", family: CURSIVE_FONT, gap: 0.15 },
+      { text: INVITE_CONFIG.hostNames, size: 0.056, weight: "600", family: SERIF_FONT, gap: 0.08 },
+      { text: INVITE_CONFIG.date + "  •  " + INVITE_CONFIG.time, size: 0.048, weight: "400", family: SERIF_FONT, gap: 0.07 },
+      { text: INVITE_CONFIG.venue, size: 0.046, weight: "400", family: SERIF_FONT, gap: 0.065 },
+    ];
+
+    const rendered = [];
+    for (const b of blocks) {
+      let fontSize = Math.max(8, unit * b.size);
+      const fontFor = (size) => "normal " + b.weight + " " + size + "px " + b.family;
+      ctx.font = fontFor(fontSize);
+      const longestWord = b.text.split(" ").reduce((a, w) => (ctx.measureText(w).width > ctx.measureText(a).width ? w : a), "");
+      while (fontSize > 8 && ctx.measureText(longestWord).width > maxWidthPx) {
+        fontSize *= 0.92;
+        ctx.font = fontFor(fontSize);
+      }
+      ctx.font = fontFor(fontSize);
+      const lines = wrapLines(b.text, maxWidthPx);
+      for (const l of lines) {
+        ctx.font = fontFor(fontSize);
+        rendered.push({
+          text: l,
+          size: fontSize,
+          weight: b.weight,
+          family: b.family,
+          gap: b.gap,
+          width: ctx.measureText(l).width,
+        });
+      }
+    }
+
+    const totalHeight = rendered.reduce((sum, r) => sum + unit * r.gap, 0);
+    let y = cy - totalHeight / 2;
+    for (const r of rendered) {
+      y += (unit * r.gap) / 2;
+      r.y = y;
+      r.x0 = cx - r.width / 2;
+      y += (unit * r.gap) / 2;
+    }
+    return rendered;
+  }
+
+  // Paints one line with a soft gold bloom, a crisp gold fill, and a moving
+  // highlight sweep for a "sparkling ink" look, clipped to its reveal progress.
+  function paintLine(line, cx, progress, now) {
+    if (progress <= 0) return null;
+
+    const revealWidth = line.width * clamp01(progress);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(line.x0, line.y - line.size, revealWidth, line.size * 2.2);
+    ctx.clip();
+
+    ctx.font = "normal " + line.weight + " " + line.size + "px " + line.family;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    ctx.shadowColor = "rgba(255, 195, 80, 0.85)";
+    ctx.shadowBlur = line.size * 0.4;
+    ctx.fillStyle = "#f3d98b";
+    ctx.fillText(line.text, cx, line.y);
+    ctx.fillText(line.text, cx, line.y);
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#fbe7ad";
+    ctx.fillText(line.text, cx, line.y);
+
+    const band = line.width * 0.16 + 1;
+    const sweepPos = line.x0 + ((Math.sin(now / 1500 + line.y * 0.01) + 1) / 2) * (line.width + band * 2) - band;
+    const sweepGrad = ctx.createLinearGradient(sweepPos - band, 0, sweepPos + band, 0);
+    sweepGrad.addColorStop(0, "rgba(255,255,255,0)");
+    sweepGrad.addColorStop(0.5, "rgba(255,255,255,0.85)");
+    sweepGrad.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = sweepGrad;
+    ctx.fillText(line.text, cx, line.y);
+    ctx.restore();
+
+    ctx.restore();
+
+    if (progress < 1) {
+      return { x: line.x0 + revealWidth, y: line.y };
+    }
+    return null;
+  }
+
+  function drawInvitationOnLeaf(cx, cy, w, h, now, dt) {
     const rx = w / 2;
     const ry = h / 2;
 
@@ -99,56 +209,33 @@
     ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
     ctx.clip();
 
-    // Soft dark scrim so gold text stays legible against the leaf
     const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry));
     grad.addColorStop(0, "rgba(10, 30, 15, 0.55)");
     grad.addColorStop(1, "rgba(10, 30, 15, 0.25)");
     ctx.fillStyle = grad;
     ctx.fillRect(cx - rx, cy - ry, rx * 2, ry * 2);
 
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#f3d98b";
-    ctx.shadowColor = "rgba(0,0,0,0.85)";
-    ctx.shadowBlur = Math.max(2, h * 0.02);
+    const rendered = layoutInvitation(cx, cy, rx, ry);
 
-    const unit = h; // scale everything off leaf height
-    const blocks = [
-      { text: INVITE_CONFIG.greeting, size: 0.075, weight: "400", style: "italic", gap: 0.09 },
-      { text: INVITE_CONFIG.eventName, size: 0.1, weight: "700", style: "normal", gap: 0.12 },
-      { text: INVITE_CONFIG.hostNames, size: 0.06, weight: "600", style: "normal", gap: 0.08 },
-      { text: INVITE_CONFIG.date + "  •  " + INVITE_CONFIG.time, size: 0.052, weight: "400", style: "normal", gap: 0.07 },
-      { text: INVITE_CONFIG.venue, size: 0.05, weight: "400", style: "normal", gap: 0.065 },
-    ];
-
-    const maxWidthPx = rx * 2 * 0.78; // inset from the ellipse's widest point
-    const rendered = [];
-    for (const b of blocks) {
-      let fontSize = Math.max(8, unit * b.size);
-      const fontFor = (size) => b.style + " " + b.weight + " " + size + "px Georgia, 'Times New Roman', serif";
-      ctx.font = fontFor(fontSize);
-      // Shrink until even the longest single word fits; wrapping alone can't help that case.
-      const longestWord = b.text.split(" ").reduce((a, w) => (ctx.measureText(w).width > ctx.measureText(a).width ? w : a), "");
-      while (fontSize > 8 && ctx.measureText(longestWord).width > maxWidthPx) {
-        fontSize *= 0.92;
-        ctx.font = fontFor(fontSize);
-      }
-      const lines = wrapLines(b.text, maxWidthPx);
-      for (const l of lines) rendered.push({ text: l, size: fontSize, weight: b.weight, style: b.style, gap: b.gap });
+    let cursor = 0;
+    let penTip = null;
+    for (const line of rendered) {
+      const durationMs = Math.max(MIN_LINE_MS, line.text.length * MS_PER_CHAR);
+      const elapsed = revealStart == null ? durationMs : now - revealStart - cursor;
+      const progress = clamp01(elapsed / durationMs);
+      const tip = paintLine(line, cx, progress, now);
+      if (tip) penTip = tip;
+      cursor += durationMs;
     }
 
-    const totalHeight = rendered.reduce((sum, r) => sum + unit * r.gap, 0);
-    let y = cy - totalHeight / 2;
-    for (const r of rendered) {
-      y += (unit * r.gap) / 2;
-      ctx.font = r.style + " " + r.weight + " " + r.size + "px Georgia, 'Times New Roman', serif";
-      ctx.fillText(r.text, cx, y);
-      y += (unit * r.gap) / 2;
+    if (penTip) {
+      Sparkles.spawnBurst(penTip.x, penTip.y, 1, { life: 500 + Math.random() * 300, size: 1.5 + Math.random() * 2, spread: 40, rise: 15 });
     }
+    Sparkles.spawnAmbient({ cx, cy, rx: rx * 0.85, ry: ry * 0.85 }, dt, 6);
+    Sparkles.draw(ctx);
 
     ctx.restore();
 
-    // Thin gold outline tracing the leaf edge for a subtle "AR lock" feel
     ctx.save();
     ctx.beginPath();
     ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
@@ -173,8 +260,10 @@
     hint.hidden = false;
   }
 
-  function frame() {
+  function frame(now) {
     if (!running) return;
+    const dt = lastTime ? now - lastTime : 16;
+    lastTime = now;
 
     if (testMode) {
       ctx.fillStyle = "#1a2c1c";
@@ -211,10 +300,18 @@
       if (smooth.visible < 0.05) drawHintReticle();
     }
 
+    if (smooth.visible < HIDE_THRESHOLD) {
+      wasHidden = true;
+    } else if (wasHidden && smooth.visible > SHOW_TRIGGER_THRESHOLD) {
+      revealStart = now;
+      wasHidden = false;
+      Sparkles.clear();
+    }
+
     if (smooth.visible > 0.05) {
       ctx.save();
       ctx.globalAlpha = Math.min(1, smooth.visible);
-      drawInvitationOnLeaf(smooth.cx, smooth.cy, smooth.w, smooth.h);
+      drawInvitationOnLeaf(smooth.cx, smooth.cy, smooth.w, smooth.h, now, dt);
       ctx.restore();
     }
 
