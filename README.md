@@ -13,9 +13,17 @@ and tracks it as you move your hand — a simple augmented-reality invite.
   clips a soft dark scrim + the invitation text to an ellipse matching the
   leaf's box, and redraws it every frame — giving the effect of text
   "painted" onto the leaf.
-- No external libraries, no build step, no network calls after the page loads.
+- No build step and no runtime dependencies besides two Google Fonts
+  (`Great Vibes` for the script hero word, `Cormorant Garamond` for the
+  supporting serif text), loaded via a `<link>` in `index.html` — the page
+  needs internet access once to fetch those, same as any font-hosted site.
   Camera access uses the standard `getUserMedia` API, which requires HTTPS
   (or `localhost`) — GitHub Pages serves over HTTPS, so it works out of the box.
+- `js/sparkle-fx.js` is a small particle system: twinkling gold glints drift
+  ambiently around the leaf and trail the "pen tip" while text is writing in.
+- The text itself writes on letter-by-letter (per line), with a gold bloom,
+  a moving highlight sweep, and hand-drawn filigree ornaments above/below the
+  hero word — restarting each time the leaf reappears after being hidden.
 
 This is a color-based heuristic, not real object recognition. It works best
 with a single leaf held against skin or a plain background, good lighting,
@@ -30,8 +38,9 @@ details:
 
 ```js
 const INVITE_CONFIG = {
+  heroWord: "Invitation",
+  greeting: "You are cordially invited",
   eventName: "Betel Leaf Ceremony",
-  greeting: "You're Cordially Invited",
   hostNames: "The Family of ___ & ___",
   date: "DD Month YYYY",
   time: "H:MM AM/PM",
@@ -39,6 +48,9 @@ const INVITE_CONFIG = {
   message: "Please join us in celebration and blessings",
 };
 ```
+
+`heroWord` is the big script title (ornaments above/below it); `greeting` is
+the small subtitle shown with flanking dashes underneath it.
 
 ## Run it locally
 

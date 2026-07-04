@@ -29,8 +29,8 @@
   const MS_PER_CHAR = 42;
   const MIN_LINE_MS = 260;
 
-  const CURSIVE_FONT = "'Brush Script MT', 'Segoe Script', 'Lucida Handwriting', cursive";
-  const SERIF_FONT = "Georgia, 'Times New Roman', serif";
+  const CURSIVE_FONT = "'Great Vibes', 'Brush Script MT', 'Segoe Script', cursive";
+  const SERIF_FONT = "'Cormorant Garamond', Georgia, 'Times New Roman', serif";
 
   function lerp(a, b, t) {
     return a + (b - a) * t;
@@ -106,23 +106,32 @@
     return lines;
   }
 
-  // Lays out the invitation blocks into individual lines with resolved font
-  // size, family and vertical position, but does not paint anything yet.
+  // Lays out the invitation blocks (hero word, ornaments, subtitle, details)
+  // into individual renderable items with resolved font size and vertical
+  // position, but does not paint anything yet.
   function layoutInvitation(cx, cy, rx, ry) {
     const unit = ry * 2;
-    const maxWidthPx = rx * 2 * 0.78;
+    const ornamentWidth = rx * 2 * 0.62;
     const blocks = [
-      { text: INVITE_CONFIG.greeting, size: 0.075, weight: "400", family: CURSIVE_FONT, gap: 0.1 },
-      { text: INVITE_CONFIG.eventName, size: 0.12, weight: "700", family: CURSIVE_FONT, gap: 0.15 },
-      { text: INVITE_CONFIG.hostNames, size: 0.056, weight: "600", family: SERIF_FONT, gap: 0.08 },
-      { text: INVITE_CONFIG.date + "  •  " + INVITE_CONFIG.time, size: 0.048, weight: "400", family: SERIF_FONT, gap: 0.07 },
-      { text: INVITE_CONFIG.venue, size: 0.046, weight: "400", family: SERIF_FONT, gap: 0.065 },
+      { type: "ornament", width: ornamentWidth, gap: 0.075 },
+      { type: "text", text: INVITE_CONFIG.heroWord, size: 0.155, weight: "400", family: CURSIVE_FONT, gap: 0.13, maxWidthFactor: 0.88, gold: true },
+      { type: "text", text: "—  " + INVITE_CONFIG.greeting + "  —", size: 0.042, weight: "500", family: SERIF_FONT, italic: true, gap: 0.075, maxWidthFactor: 0.82 },
+      { type: "ornament", width: ornamentWidth * 0.8, gap: 0.075 },
+      { type: "text", text: INVITE_CONFIG.eventName, size: 0.058, weight: "600", family: SERIF_FONT, gap: 0.085, maxWidthFactor: 0.8 },
+      { type: "text", text: INVITE_CONFIG.hostNames, size: 0.05, weight: "500", family: SERIF_FONT, gap: 0.075, maxWidthFactor: 0.78 },
+      { type: "text", text: INVITE_CONFIG.date + "  •  " + INVITE_CONFIG.time, size: 0.044, weight: "400", family: SERIF_FONT, gap: 0.065, maxWidthFactor: 0.78 },
+      { type: "text", text: INVITE_CONFIG.venue, size: 0.042, weight: "400", family: SERIF_FONT, gap: 0.06, maxWidthFactor: 0.78 },
     ];
 
     const rendered = [];
     for (const b of blocks) {
+      if (b.type === "ornament") {
+        rendered.push({ type: "ornament", width: b.width, gap: b.gap });
+        continue;
+      }
+      const maxWidthPx = rx * 2 * (b.maxWidthFactor || 0.78);
       let fontSize = Math.max(8, unit * b.size);
-      const fontFor = (size) => "normal " + b.weight + " " + size + "px " + b.family;
+      const fontFor = (size) => (b.italic ? "italic " : "normal ") + b.weight + " " + size + "px " + b.family;
       ctx.font = fontFor(fontSize);
       const longestWord = b.text.split(" ").reduce((a, w) => (ctx.measureText(w).width > ctx.measureText(a).width ? w : a), "");
       while (fontSize > 8 && ctx.measureText(longestWord).width > maxWidthPx) {
@@ -134,10 +143,13 @@
       for (const l of lines) {
         ctx.font = fontFor(fontSize);
         rendered.push({
+          type: "text",
           text: l,
           size: fontSize,
           weight: b.weight,
           family: b.family,
+          italic: !!b.italic,
+          gold: !!b.gold,
           gap: b.gap,
           width: ctx.measureText(l).width,
         });
@@ -149,14 +161,60 @@
     for (const r of rendered) {
       y += (unit * r.gap) / 2;
       r.y = y;
-      r.x0 = cx - r.width / 2;
+      if (r.type === "text") r.x0 = cx - r.width / 2;
       y += (unit * r.gap) / 2;
     }
     return rendered;
   }
 
-  // Paints one line with a soft gold bloom, a crisp gold fill, and a moving
-  // highlight sweep for a "sparkling ink" look, clipped to its reveal progress.
+  // A symmetric filigree divider: two curled arms plus a center diamond,
+  // drawn stroke-first so it can "grow" outward from the middle on reveal.
+  function paintOrnament(item, cx, progress) {
+    if (progress <= 0) return;
+    const width = item.width * easeOut(clamp01(progress));
+    const halfW = width / 2;
+    const armLen = halfW * 0.82;
+    const y = item.y;
+
+    ctx.save();
+    ctx.globalAlpha *= Math.min(1, progress * 1.6);
+    ctx.strokeStyle = "rgba(243,217,139,0.85)";
+    ctx.lineWidth = Math.max(1, width * 0.0065);
+    ctx.lineCap = "round";
+    ctx.shadowColor = "rgba(255,195,80,0.75)";
+    ctx.shadowBlur = width * 0.03;
+
+    ctx.beginPath();
+    ctx.moveTo(cx - width * 0.05, y);
+    ctx.quadraticCurveTo(cx - armLen * 0.55, y - width * 0.025, cx - armLen, y);
+    ctx.quadraticCurveTo(cx - armLen * 1.06, y + width * 0.028, cx - armLen * 0.9, y + width * 0.032);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(cx + width * 0.05, y);
+    ctx.quadraticCurveTo(cx + armLen * 0.55, y - width * 0.025, cx + armLen, y);
+    ctx.quadraticCurveTo(cx + armLen * 1.06, y + width * 0.028, cx + armLen * 0.9, y + width * 0.032);
+    ctx.stroke();
+
+    const d = width * 0.022;
+    ctx.beginPath();
+    ctx.moveTo(cx, y - d);
+    ctx.lineTo(cx + d, y);
+    ctx.lineTo(cx, y + d);
+    ctx.lineTo(cx - d, y);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(243,217,139,0.9)";
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function easeOut(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  // Paints one line with a soft gold bloom, a crisp fill (gradient for the
+  // hero word), and a moving highlight sweep, clipped to its reveal progress.
   function paintLine(line, cx, progress, now) {
     if (progress <= 0) return null;
 
@@ -166,18 +224,26 @@
     ctx.rect(line.x0, line.y - line.size, revealWidth, line.size * 2.2);
     ctx.clip();
 
-    ctx.font = "normal " + line.weight + " " + line.size + "px " + line.family;
+    ctx.font = (line.italic ? "italic " : "normal ") + line.weight + " " + line.size + "px " + line.family;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
     ctx.shadowColor = "rgba(255, 195, 80, 0.85)";
-    ctx.shadowBlur = line.size * 0.4;
+    ctx.shadowBlur = line.size * (line.gold ? 0.55 : 0.4);
     ctx.fillStyle = "#f3d98b";
     ctx.fillText(line.text, cx, line.y);
     ctx.fillText(line.text, cx, line.y);
 
     ctx.shadowBlur = 0;
-    ctx.fillStyle = "#fbe7ad";
+    if (line.gold) {
+      const g = ctx.createLinearGradient(0, line.y - line.size * 0.55, 0, line.y + line.size * 0.55);
+      g.addColorStop(0, "#fff6d8");
+      g.addColorStop(0.5, "#f0c34d");
+      g.addColorStop(1, "#b6841f");
+      ctx.fillStyle = g;
+    } else {
+      ctx.fillStyle = "#fbe7ad";
+    }
     ctx.fillText(line.text, cx, line.y);
 
     const band = line.width * 0.16 + 1;
@@ -219,12 +285,16 @@
 
     let cursor = 0;
     let penTip = null;
-    for (const line of rendered) {
-      const durationMs = Math.max(MIN_LINE_MS, line.text.length * MS_PER_CHAR);
+    for (const item of rendered) {
+      const durationMs = item.type === "ornament" ? 450 : Math.max(MIN_LINE_MS, item.text.length * MS_PER_CHAR);
       const elapsed = revealStart == null ? durationMs : now - revealStart - cursor;
       const progress = clamp01(elapsed / durationMs);
-      const tip = paintLine(line, cx, progress, now);
-      if (tip) penTip = tip;
+      if (item.type === "ornament") {
+        paintOrnament(item, cx, progress);
+      } else {
+        const tip = paintLine(item, cx, progress, now);
+        if (tip) penTip = tip;
+      }
       cursor += durationMs;
     }
 
