@@ -171,7 +171,11 @@
     const unit = ry * 2;
     const rendered = [];
 
-    const heroMaxWidthPx = rx * 2 * 0.78;
+    // Capped by the actual screen width too: once the leaf is close enough
+    // that ZOOM_BOOST inflates rx well past half the real screen, a fraction
+    // of rx can be wider than the phone itself, which would let a wrapped
+    // line overflow both edges instead of actually wrapping.
+    const heroMaxWidthPx = Math.min(rx * 2 * 0.78, canvas.width * 0.9);
     let heroFontSize = Math.max(8, unit * 0.1);
     const heroFontFor = (size) => "normal 400 " + size + "px " + CURSIVE_FONT;
     ctx.font = heroFontFor(heroFontSize);
@@ -202,8 +206,8 @@
     // empty string is a blank spacer between the two sentences. Each
     // non-empty line is still safety-wrapped in case it doesn't fit a
     // narrow/small leaf, but normally renders as the single line given.
-    const msgMaxWidthPx = rx * 2 * 0.87;
-    let msgFontSize = Math.max(12, unit * 0.048);
+    const msgMaxWidthPx = Math.min(rx * 2 * 0.87, canvas.width * 0.9);
+    let msgFontSize = Math.max(18, unit * 0.072);
     const msgFontFor = (size) => "italic 400 " + size + "px " + SERIF_FONT;
     const longestMsgWord = INVITE_CONFIG.message
       .join(" ")
