@@ -43,7 +43,12 @@ code, and time line.
   restarting each time the leaf reappears after being hidden.
 - If a file exists at `assets/hero-logo.png`, it's drawn on the leaf (with
   the same materialize animation) in place of the styled hero word text —
-  probed once at page load, falling back to text if missing.
+  probed once at page load, falling back to text if missing. It's
+  deliberately only used on the leaf, not the landing screen, so scanning
+  still reveals it as a surprise.
+- The landing screen itself will use `assets/welcome-bg.jpg` (preferred) or
+  `assets/welcome-bg.png` as its background if present, with a tinted scrim
+  over it for legibility, instead of the plain cream gradient.
 - The wrapping/font-size layout is computed **once**, the moment the leaf
   locks in (`lockInvitation` in `js/app.js`), using the leaf's size at that
   instant as the reference frame. After that, moving/zooming/tilting the

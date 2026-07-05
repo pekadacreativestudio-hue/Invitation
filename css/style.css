@@ -114,14 +114,6 @@ html, body {
   text-shadow: 0 2px 6px rgba(32, 74, 44, 0.25);
 }
 
-#overlayLogo {
-  display: block;
-  width: 100%;
-  max-width: 22rem;
-  height: auto;
-  margin: 0 auto;
-}
-
 #overlay p {
   margin: 0;
   max-width: 26rem;

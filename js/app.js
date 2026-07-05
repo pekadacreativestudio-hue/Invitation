@@ -35,29 +35,33 @@
 
   // An uploaded logo (assets/hero-logo.png) is drawn on the leaf in place of
   // the hero word text, if present. Probed once at load time; falls back to
-  // the styled text hero word if missing. The same image is reused for the
-  // landing screen's logo, in place of the plain text heading there too.
+  // the styled text hero word if missing. Intentionally NOT shown on the
+  // landing screen — revealing it before scanning would spoil the "appears
+  // on the leaf" surprise.
   let heroLogo = null;
   const heroLogoProbe = new Image();
   heroLogoProbe.onload = () => {
     heroLogo = heroLogoProbe;
-    const overlayLogo = document.getElementById("overlayLogo");
-    overlayLogo.src = heroLogoProbe.src;
-    overlayLogo.hidden = false;
-    document.getElementById("overlayHero").hidden = true;
   };
   heroLogoProbe.src = "assets/hero-logo.png";
 
-  // An uploaded background (assets/welcome-bg.png) replaces the plain cream
-  // gradient behind the landing screen, if present, with a tinted scrim
-  // layered over it so the title/button stay legible.
-  const welcomeBgProbe = new Image();
-  welcomeBgProbe.onload = () => {
-    const overlayBg = document.getElementById("overlayBg");
-    overlayBg.style.setProperty("--bg-url", 'url("' + welcomeBgProbe.src + '")');
-    overlayBg.classList.add("has-image");
-  };
-  welcomeBgProbe.src = "assets/welcome-bg.png";
+  // An uploaded background photo replaces the plain cream gradient behind
+  // the landing screen, if present, with a tinted scrim layered over it so
+  // the title/button stay legible. Tries .jpg first (recommended — a
+  // photographic background compresses far smaller as JPEG than PNG),
+  // falling back to .png.
+  function loadWelcomeBg(paths) {
+    if (!paths.length) return;
+    const probe = new Image();
+    probe.onload = () => {
+      const overlayBg = document.getElementById("overlayBg");
+      overlayBg.style.setProperty("--bg-url", 'url("' + probe.src + '")');
+      overlayBg.classList.add("has-image");
+    };
+    probe.onerror = () => loadWelcomeBg(paths.slice(1));
+    probe.src = paths[0];
+  }
+  loadWelcomeBg(["assets/welcome-bg.jpg", "assets/welcome-bg.png"]);
 
   // The text layout (wrapping, font sizes, positions) is computed ONCE per
   // "capture" — the moment the leaf locks in — and cached here. After that,
