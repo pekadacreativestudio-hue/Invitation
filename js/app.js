@@ -149,8 +149,6 @@
   window.addEventListener("resize", resizeCanvas);
   resizeCanvas();
 
-  document.getElementById("overlayHero").textContent = INVITE_CONFIG.heroWord;
-
   function drawVideoCover() {
     const vw = video.videoWidth || canvas.width;
     const vh = video.videoHeight || canvas.height;
