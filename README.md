@@ -20,7 +20,7 @@ time line).
 - A dashed heart-shaped reticle sized to fill nearly the full phone screen
   guides you to the target while scanning. It (and the "Show the betel
   leaf..." hint) stays up even once a leaf-colored blob is detected —
-  only once the leaf's tracked width fills enough of the frame
+  only once the leaf's tracked width fills at least 85% of the screen
   (`FILL_TRIGGER_THRESHOLD` in `js/app.js`) does the reticle disappear and
   the invitation start materializing, so you're guided to actually fill
   the scan area rather than the text appearing for any small/distant leaf.

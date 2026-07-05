@@ -7,10 +7,14 @@
 const INVITE_CONFIG = {
   heroWord: "Blessings of Healing",
   message: [
-    "You are honorably invited to",
-    "awaken your inherent healing gifts.",
+    "You are",
+    "honorably invited to",
+    "awaken your",
+    "inherent healing gifts.",
     "",
-    "Join us to uncover the deep methods of",
-    "bringing healing to others.",
+    "Join us to",
+    "uncover the deep methods of",
+    "bringing healing",
+    "to others.",
   ],
 };

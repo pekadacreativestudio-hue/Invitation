@@ -36,7 +36,7 @@
   // actually held this close/large, so the invitation only starts appearing
   // once the scanning area is genuinely filled, not just as soon as any
   // leaf-colored blob is seen.
-  const FILL_TRIGGER_THRESHOLD = 0.58;
+  const FILL_TRIGGER_THRESHOLD = 0.85;
   const ITEM_STAGGER_MS = 260;
   const ITEM_DURATION_MS = 700;
 
@@ -203,7 +203,7 @@
     // non-empty line is still safety-wrapped in case it doesn't fit a
     // narrow/small leaf, but normally renders as the single line given.
     const msgMaxWidthPx = rx * 2 * 0.87;
-    let msgFontSize = Math.max(8, unit * 0.032);
+    let msgFontSize = Math.max(12, unit * 0.048);
     const msgFontFor = (size) => "italic 400 " + size + "px " + SERIF_FONT;
     const longestMsgWord = INVITE_CONFIG.message
       .join(" ")
@@ -215,10 +215,10 @@
       ctx.font = msgFontFor(msgFontSize);
     }
 
-    let pendingGap = 0.17; // gap before the first message line stands in for the blank line after the hero word
+    let pendingGap = 0.085; // gap before the first message line stands in for the blank line after the hero word
     INVITE_CONFIG.message.forEach((line) => {
       if (line === "") {
-        pendingGap += 0.13; // blank spacer: fold into the gap before the next real line
+        pendingGap += 0.065; // blank spacer: fold into the gap before the next real line
         return;
       }
       ctx.font = msgFontFor(msgFontSize);
@@ -233,13 +233,11 @@
           family: SERIF_FONT,
           italic: true,
           gold: false,
-          // Gaps are generous so the glow around each line doesn't visually
-          // bleed into its neighbors.
-          gap: i === 0 ? pendingGap : 0.1,
+          gap: i === 0 ? pendingGap : 0.05,
           width: ctx.measureText(l).width,
         });
       });
-      pendingGap = 0.1;
+      pendingGap = 0.05;
     });
 
     const totalHeight = rendered.reduce((sum, r) => sum + unit * r.gap, 0);
