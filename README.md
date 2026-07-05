@@ -12,11 +12,13 @@ scrollable e-invitation with the date, venue, dress code, and time line.
   pixels (tuned for a betel leaf's color), then finds the largest connected
   blob of those pixels via flood fill. That gives a bounding box for "the leaf".
 - `js/app.js` smooths that box frame-to-frame (so the text doesn't jitter),
-  clips a soft dark scrim + the invitation text to a heart-shaped path
-  matching a real betel leaf's silhouette (`betelLeafPath`), and redraws it
-  every frame — giving the effect of text "painted" onto the leaf. The scrim
-  is intentionally light — just enough for gold text to read against the
-  leaf's own color, not a heavy overlay.
+  clips the invitation text to a heart-shaped path matching a real betel
+  leaf's silhouette (`betelLeafPath`), and redraws it every frame — giving
+  the effect of text "painted" onto the leaf. The leaf itself is left
+  untouched (no darkening overlay) — only the gold text is drawn over it.
+- A dashed heart-shaped reticle guides you to the target while scanning;
+  it disappears the moment a leaf is detected, and no outline is drawn
+  around the leaf once tracking begins.
 - As the leaf fills more of the frame (you move the phone closer), the whole
   invitation zooms in beyond its tracked size (see `ZOOM_START`/`ZOOM_END`/
   `ZOOM_BOOST` in `js/app.js`) so the text stays comfortably readable up

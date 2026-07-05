@@ -293,14 +293,6 @@
     betelLeafPath(cx, cy, rx, ry);
     ctx.clip();
 
-    // Just enough of a scrim for the gold text to stay legible — the real
-    // leaf underneath should still read as itself, only slightly darkened.
-    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry));
-    grad.addColorStop(0, "rgba(10, 25, 12, 0.32)");
-    grad.addColorStop(1, "rgba(10, 25, 12, 0.14)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(cx - rx * 1.4, cy - ry, rx * 2.8, ry * 2);
-
     // The heart shape narrows sharply at the top notch and the bottom tip,
     // so text is laid out within a smaller interior band — shifted slightly
     // below center, where the shape stays widest — instead of the full
@@ -344,13 +336,6 @@
     Sparkles.spawnAmbient({ cx, cy, rx: rx * 0.85, ry: ry * 0.85 }, dt, 6);
     Sparkles.draw(ctx);
 
-    ctx.restore();
-
-    ctx.save();
-    betelLeafPath(cx, cy, rx, ry);
-    ctx.strokeStyle = "rgba(243, 217, 139, 0.55)";
-    ctx.lineWidth = Math.max(1, h * 0.006);
-    ctx.stroke();
     ctx.restore();
 
     return allDone;
