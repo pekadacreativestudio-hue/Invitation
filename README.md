@@ -51,9 +51,15 @@ card is shown as a fallback. No code changes needed, just add the file.
 
 This is a color-based heuristic, not real object recognition. It works best
 with a single leaf held against skin or a plain background, good lighting,
-and the leaf reasonably close to the camera. There's a dashed reticle shown
-until a leaf is detected, and a "Preview without camera" button for testing
-the wording/layout without a real leaf.
+and the leaf reasonably close to the camera. There's a dashed heart-shaped
+reticle shown until a leaf is detected.
+
+Text is laid out within a "safe interior band" of the heart shape (`safeCy`/
+`safeHalfHeight` in `drawInvitationOnLeaf`), not the full height, since the
+silhouette narrows sharply at the top notch and bottom tip — content placed
+across the full height would get clipped there. On top of that, the whole
+block is auto-shrunk (a canvas scale transform) if it still doesn't fit, so
+it's never clipped regardless of leaf shape/aspect ratio or message length.
 
 ## Customize your wording
 

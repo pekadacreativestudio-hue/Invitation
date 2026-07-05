@@ -4,7 +4,6 @@
   const ctx = canvas.getContext("2d");
   const startBtn = document.getElementById("startBtn");
   const switchBtn = document.getElementById("switchBtn");
-  const testBtn = document.getElementById("testBtn");
   const snapBtn = document.getElementById("snapBtn");
   const overlay = document.getElementById("overlay");
   const hint = document.getElementById("hint");
@@ -16,7 +15,6 @@
 
   let stream = null;
   let facingMode = "environment";
-  let testMode = false;
   let running = false;
   let lastTime = 0;
   let guestName = "Friend";
@@ -76,12 +74,10 @@
       video.srcObject = stream;
       await video.play();
       overlay.hidden = true;
-      testMode = false;
       running = true;
     } catch (err) {
       errorBox.hidden = false;
-      errorBox.textContent =
-        "Camera access failed (" + err.message + "). You can still preview the invitation with 'Preview without camera'.";
+      errorBox.textContent = "Camera access failed (" + err.message + "). Please allow camera access and try again.";
     }
   }
 
@@ -134,18 +130,20 @@
 
   // Lays out the invitation blocks (hero word, ornaments, subtitle, details)
   // into individual renderable items with resolved font size and vertical
-  // position, but does not paint anything yet.
+  // position (relative to the given center/half-height), but does not paint
+  // anything yet. Returns the items plus the total height they need, so the
+  // caller can shrink everything uniformly if it doesn't fit.
   function layoutInvitation(cx, cy, rx, ry) {
     const unit = ry * 2;
-    const ornamentWidth = rx * 2 * 0.62;
+    const ornamentWidth = rx * 2 * 0.5;
     const blocks = [
-      { type: "ornament", width: ornamentWidth, gap: 0.07 },
-      { type: "text", text: INVITE_CONFIG.heroWord, size: 0.062, weight: "700", family: SERIF_FONT, gap: 0.09, maxWidthFactor: 0.86, gold: true },
-      { type: "text", text: guestName, size: 0.1, weight: "400", family: CURSIVE_FONT, gap: 0.12, maxWidthFactor: 0.84 },
-      { type: "ornament", width: ornamentWidth * 0.8, gap: 0.065 },
-      { type: "text", text: INVITE_CONFIG.message, size: 0.04, weight: "400", family: SERIF_FONT, italic: true, gap: 0.06, maxWidthFactor: 0.8 },
-      { type: "text", text: "Date : " + INVITE_CONFIG.date, size: 0.044, weight: "600", family: SERIF_FONT, gap: 0.07, maxWidthFactor: 0.8 },
-      { type: "text", text: INVITE_CONFIG.venue, size: 0.042, weight: "400", family: SERIF_FONT, gap: 0.06, maxWidthFactor: 0.78 },
+      { type: "ornament", width: ornamentWidth, gap: 0.075 },
+      { type: "text", text: INVITE_CONFIG.heroWord, size: 0.062, weight: "700", family: SERIF_FONT, gap: 0.095, maxWidthFactor: 0.74, gold: true },
+      { type: "text", text: guestName, size: 0.1, weight: "400", family: CURSIVE_FONT, gap: 0.13, maxWidthFactor: 0.7 },
+      { type: "ornament", width: ornamentWidth * 0.8, gap: 0.07 },
+      { type: "text", text: INVITE_CONFIG.message, size: 0.04, weight: "400", family: SERIF_FONT, italic: true, gap: 0.062, maxWidthFactor: 0.64 },
+      { type: "text", text: "Date : " + INVITE_CONFIG.date, size: 0.044, weight: "600", family: SERIF_FONT, gap: 0.072, maxWidthFactor: 0.64 },
+      { type: "text", text: INVITE_CONFIG.venue, size: 0.042, weight: "400", family: SERIF_FONT, gap: 0.062, maxWidthFactor: 0.62 },
     ];
 
     const rendered = [];
@@ -189,7 +187,7 @@
       if (r.type === "text") r.x0 = cx - r.width / 2;
       y += (unit * r.gap) / 2;
     }
-    return rendered;
+    return { items: rendered, totalHeight };
   }
 
   // A symmetric filigree divider: two curled arms plus a center diamond,
@@ -303,7 +301,23 @@
     ctx.fillStyle = grad;
     ctx.fillRect(cx - rx * 1.4, cy - ry, rx * 2.8, ry * 2);
 
-    const rendered = layoutInvitation(cx, cy, rx, ry);
+    // The heart shape narrows sharply at the top notch and the bottom tip,
+    // so text is laid out within a smaller interior band — shifted slightly
+    // below center, where the shape stays widest — instead of the full
+    // height, which would push the first/last lines into the narrow parts
+    // and get them clipped by the silhouette.
+    const safeCy = cy + ry * 0.06;
+    const safeHalfHeight = ry * 0.46;
+    const { items: rendered, totalHeight } = layoutInvitation(cx, safeCy, rx, safeHalfHeight);
+    const scale = Math.min(1, (safeHalfHeight * 2) / totalHeight);
+    const toScreen = (x, y) => ({ x: cx + (x - cx) * scale, y: safeCy + (y - safeCy) * scale });
+
+    ctx.save();
+    if (scale < 1) {
+      ctx.translate(cx, safeCy);
+      ctx.scale(scale, scale);
+      ctx.translate(-cx, -safeCy);
+    }
 
     let cursor = 0;
     let penTip = null;
@@ -321,9 +335,11 @@
       }
       cursor += durationMs;
     }
+    ctx.restore();
 
     if (penTip) {
-      Sparkles.spawnBurst(penTip.x, penTip.y, 1, { life: 500 + Math.random() * 300, size: 1.5 + Math.random() * 2, spread: 40, rise: 15 });
+      const screenTip = toScreen(penTip.x, penTip.y);
+      Sparkles.spawnBurst(screenTip.x, screenTip.y, 1, { life: 500 + Math.random() * 300, size: 1.5 + Math.random() * 2, spread: 40, rise: 15 });
     }
     Sparkles.spawnAmbient({ cx, cy, rx: rx * 0.85, ry: ry * 0.85 }, dt, 6);
     Sparkles.draw(ctx);
@@ -359,26 +375,14 @@
     const dt = lastTime ? now - lastTime : 16;
     lastTime = now;
 
-    if (testMode) {
-      ctx.fillStyle = "#1a2c1c";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    } else {
-      drawVideoCover();
-    }
+    drawVideoCover();
 
     let detection = null;
-    if (!testMode && video.readyState >= 2) {
+    if (video.readyState >= 2) {
       detection = LeafDetector.detect(video);
     }
 
-    if (testMode) {
-      smooth.visible = lerp(smooth.visible, 1, 0.2);
-      smooth.cx = canvas.width / 2;
-      smooth.cy = canvas.height / 2;
-      smooth.w = Math.min(canvas.width, canvas.height) * 0.5;
-      smooth.h = smooth.w * 1.2;
-      hint.hidden = true;
-    } else if (detection) {
+    if (detection) {
       const px = detection.cx * canvas.width;
       const py = detection.cy * canvas.height;
       const pw = detection.w * canvas.width;
@@ -476,17 +480,7 @@
 
   switchBtn.addEventListener("click", async () => {
     facingMode = facingMode === "environment" ? "user" : "environment";
-    if (!testMode) await startCamera();
-  });
-
-  testBtn.addEventListener("click", () => {
-    captureName();
-    stopCamera();
-    overlay.hidden = true;
-    errorBox.hidden = true;
-    testMode = true;
-    running = true;
-    requestAnimationFrame(frame);
+    await startCamera();
   });
 
   snapBtn.addEventListener("click", () => {
@@ -508,7 +502,6 @@
   backBtn.addEventListener("click", () => {
     invitationAccepted = false;
     eCard.hidden = true;
-    testMode = false;
     overlay.hidden = false;
     hint.hidden = true;
     smooth.visible = 0;
