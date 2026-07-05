@@ -8,7 +8,6 @@
   const overlay = document.getElementById("overlay");
   const hint = document.getElementById("hint");
   const errorBox = document.getElementById("errorBox");
-  const nameInput = document.getElementById("nameInput");
   const acceptBtn = document.getElementById("acceptBtn");
   const eCard = document.getElementById("eCard");
   const backBtn = document.getElementById("backBtn");
@@ -17,7 +16,6 @@
   let facingMode = "environment";
   let running = false;
   let lastTime = 0;
-  let guestName = "Friend";
   let invitationAccepted = false;
 
   // Smoothed leaf box, in normalized [0,1] coords, plus a confidence/visibility value
@@ -507,11 +505,6 @@
     requestAnimationFrame(frame);
   }
 
-  function captureName() {
-    const v = nameInput.value.trim();
-    guestName = v || "Friend";
-  }
-
   // Prefers a designer-provided e-invitation image (assets/e-invitation.png)
   // over the generated text card. Drop a PNG at that path and it takes over
   // automatically — no code changes needed.
@@ -531,7 +524,6 @@
     probe.src = "assets/e-invitation.png";
 
     document.getElementById("eCardHero").textContent = INVITE_CONFIG.heroWord;
-    document.getElementById("eCardGreeting").textContent = "Dear " + guestName + ",";
     document.getElementById("eCardMessage").textContent = INVITE_CONFIG.message;
     document.getElementById("eCardDate").textContent = "Date : " + INVITE_CONFIG.date;
     document.getElementById("eCardVenue").textContent = "Venue : " + INVITE_CONFIG.venue;
@@ -552,7 +544,6 @@
   }
 
   startBtn.addEventListener("click", async () => {
-    captureName();
     await startCamera();
     if (running) requestAnimationFrame(frame);
   });

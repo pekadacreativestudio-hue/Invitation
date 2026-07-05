@@ -1,11 +1,11 @@
 # AR Betel Leaf Invitation
 
-Open this page on a phone, type your name, then hold a real betel leaf on
-your palm and point the camera at it. The hero title and invitation message
-materialize onto the leaf in a magical fade/sparkle effect, and track it as
-you move your hand. Once fully appeared, an **Accept Invitation** button
-fades in; tapping it opens a full scrollable e-invitation with the date,
-venue, dress code, and time line.
+Open this page on a phone, hold a real betel leaf on your palm, and point
+the camera at it. The hero title and invitation message materialize onto
+the leaf in a magical fade/sparkle effect, and track it as you move your
+hand. Once fully appeared, an **Accept Invitation** button fades in;
+tapping it opens a full scrollable e-invitation with the date, venue, dress
+code, and time line.
 
 ## How it works
 
@@ -35,9 +35,8 @@ venue, dress code, and time line.
   starts appearing.
 - Only the hero word and the invitation message appear on the leaf (kept
   short on purpose — the heart shape narrows a lot at the top and bottom,
-  so less content fits comfortably there). The guest's name, date, venue,
-  dress code, and time line only appear on the full e-invitation after
-  Accept is tapped.
+  so less content fits comfortably there). Date, venue, dress code, and
+  time line only appear on the full e-invitation after Accept is tapped.
 - Each item materializes with a fade + scale-settle (from slightly oversized
   down to full size) plus a gold bloom and moving highlight sweep, cascading
   top to bottom with overlapping stagger — not a left-to-right typewriter —

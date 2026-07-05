@@ -127,28 +127,6 @@ button.secondary {
   padding: 0.5rem 1.1rem;
 }
 
-#nameInput {
-  font-family: inherit;
-  font-size: 1.05rem;
-  padding: 0.7rem 1.2rem;
-  border-radius: 999px;
-  border: 1px solid rgba(47, 107, 63, 0.4);
-  background: rgba(255, 255, 255, 0.55);
-  color: var(--green-dark);
-  text-align: center;
-  width: 100%;
-  max-width: 20rem;
-}
-
-#nameInput::placeholder {
-  color: rgba(47, 107, 63, 0.45);
-}
-
-#nameInput:focus {
-  outline: none;
-  border-color: var(--green-mid);
-}
-
 #acceptBtn {
   position: fixed;
   bottom: 4.6rem;
@@ -229,13 +207,6 @@ button.secondary {
   font-weight: 400;
   color: var(--green-mid);
   text-shadow: 0 2px 8px rgba(32, 74, 44, 0.3);
-}
-
-#eCardGreeting {
-  font-family: 'Great Vibes', 'Brush Script MT', cursive;
-  font-size: 1.7rem;
-  margin: 0;
-  color: var(--brown-2);
 }
 
 #eCardMessage {
