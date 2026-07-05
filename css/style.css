@@ -2,6 +2,17 @@
   box-sizing: border-box;
 }
 
+:root {
+  --cream: #faf6ea;
+  --cream-2: #f2efdf;
+  --green-dark: #204a2c;
+  --green-mid: #2f6b3f;
+  --green-soft: #7fb56f;
+  --brown-1: #8a6a3a;
+  --brown-2: #6b4f26;
+  --brown-text: #f4ecd8;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -9,7 +20,7 @@ html, body {
   height: 100%;
   background: #0a0f0a;
   overflow: hidden;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: 'Cormorant Garamond', Georgia, "Times New Roman", serif;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -26,6 +37,17 @@ html, body {
   display: block;
 }
 
+/* Leaf-shaped decorative accents (CSS only, no image assets) used to evoke
+   the hanging betel-leaf vines from the reference invitation design. */
+.leaf-deco {
+  position: absolute;
+  width: 2.6rem;
+  height: 4rem;
+  background: linear-gradient(135deg, var(--green-soft), var(--green-mid));
+  border-radius: 0% 100% 0% 100%;
+  opacity: 0.3;
+}
+
 #overlay {
   position: fixed;
   inset: 0;
@@ -36,71 +58,95 @@ html, body {
   gap: 1.1rem;
   padding: 2rem 1.5rem;
   text-align: center;
-  background: radial-gradient(circle at 50% 30%, #1a2c1c 0%, #0a0f0a 75%);
-  color: #f3d98b;
+  background: radial-gradient(circle at 50% 20%, var(--cream) 0%, var(--cream-2) 80%);
+  color: var(--green-dark);
   z-index: 10;
+  overflow: hidden;
+}
+
+#overlay::before,
+#overlay::after {
+  content: "";
+  position: absolute;
+  top: -1rem;
+  width: 2.8rem;
+  height: 4.4rem;
+  background: linear-gradient(135deg, var(--green-soft), var(--green-mid));
+  border-radius: 0% 100% 0% 100%;
+  opacity: 0.28;
+}
+#overlay::before {
+  left: 6%;
+  transform: rotate(-25deg);
+}
+#overlay::after {
+  right: 6%;
+  transform: rotate(25deg) scaleX(-1);
 }
 
 #overlay h1 {
-  font-size: 1.5rem;
+  font-family: 'Great Vibes', 'Brush Script MT', cursive;
+  font-size: 3rem;
+  line-height: 1.1;
   margin: 0;
-  letter-spacing: 0.03em;
   font-weight: 400;
-  font-style: italic;
+  color: var(--green-mid);
+  text-shadow: 0 2px 6px rgba(32, 74, 44, 0.25);
 }
 
 #overlay p {
   margin: 0;
-  max-width: 30rem;
-  color: #d9d0b0;
-  font-size: 0.95rem;
+  max-width: 26rem;
+  color: #4a5c3f;
+  font-size: 1.05rem;
   line-height: 1.5;
 }
 
 button {
-  font-family: inherit;
-  font-size: 1rem;
-  padding: 0.75rem 1.6rem;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 0.7rem 1.7rem;
   border-radius: 999px;
-  border: 1px solid #f3d98b;
+  border: 1px solid var(--green-mid);
   background: transparent;
-  color: #f3d98b;
+  color: var(--green-mid);
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
 }
 
 button:hover {
-  background: #f3d98b;
-  color: #0a0f0a;
+  background: var(--green-mid);
+  color: var(--cream);
 }
 
 button.secondary {
-  border-color: rgba(243, 217, 139, 0.5);
-  color: rgba(243, 217, 139, 0.85);
-  font-size: 0.85rem;
-  padding: 0.55rem 1.1rem;
+  border-color: rgba(47, 107, 63, 0.5);
+  color: rgba(47, 107, 63, 0.85);
+  font-size: 0.9rem;
+  padding: 0.5rem 1.1rem;
 }
 
 #nameInput {
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 1.05rem;
   padding: 0.7rem 1.2rem;
   border-radius: 999px;
-  border: 1px solid rgba(243, 217, 139, 0.5);
-  background: rgba(255, 255, 255, 0.04);
-  color: #f3d98b;
+  border: 1px solid rgba(47, 107, 63, 0.4);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--green-dark);
   text-align: center;
   width: 100%;
   max-width: 20rem;
 }
 
 #nameInput::placeholder {
-  color: rgba(243, 217, 139, 0.45);
+  color: rgba(47, 107, 63, 0.45);
 }
 
 #nameInput:focus {
   outline: none;
-  border-color: #f3d98b;
+  border-color: var(--green-mid);
 }
 
 #acceptBtn {
@@ -108,11 +154,12 @@ button.secondary {
   bottom: 4.6rem;
   left: 50%;
   transform: translateX(-50%);
-  background: #f3d98b;
-  color: #0a0f0a;
-  font-weight: 600;
+  background: linear-gradient(135deg, #d9b877, var(--brown-1));
+  border-color: var(--brown-2);
+  color: #2a1c08;
+  font-weight: 700;
   letter-spacing: 0.02em;
-  box-shadow: 0 0 18px rgba(243, 217, 139, 0.55);
+  box-shadow: 0 4px 18px rgba(107, 79, 38, 0.55);
   z-index: 6;
   opacity: 0;
   transition: opacity 0.6s ease;
@@ -129,9 +176,9 @@ button.secondary {
   inset: 0;
   z-index: 30;
   overflow-y: auto;
-  background: radial-gradient(circle at 50% 0%, #16241a 0%, #0a0f0a 70%);
-  color: #f3d98b;
-  padding: 3rem 1.5rem 5.5rem;
+  background: linear-gradient(180deg, var(--cream) 0%, #eef0dd 100%);
+  color: var(--green-dark);
+  padding: 3rem 1.5rem 8rem;
 }
 
 #eCardImage {
@@ -143,6 +190,7 @@ button.secondary {
 }
 
 #eCardContent {
+  position: relative;
   max-width: 32rem;
   margin: 0 auto;
   text-align: center;
@@ -151,37 +199,71 @@ button.secondary {
   gap: 0.9rem;
 }
 
+#eCardVinesLeft,
+#eCardVinesRight {
+  position: absolute;
+  top: -1.5rem;
+  width: 2.6rem;
+  height: 12rem;
+  background:
+    linear-gradient(160deg, var(--green-soft) 0 20%, transparent 20%),
+    linear-gradient(20deg, var(--green-mid) 0 20%, transparent 20%);
+  opacity: 0.22;
+  pointer-events: none;
+}
+#eCardVinesLeft {
+  left: -1.2rem;
+  border-radius: 0% 100% 0% 100%;
+  transform: rotate(-18deg);
+}
+#eCardVinesRight {
+  right: -1.2rem;
+  border-radius: 100% 0% 100% 0%;
+  transform: rotate(18deg);
+}
+
 #eCardHero {
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: #f6d878;
-  text-shadow: 0 0 14px rgba(255, 195, 80, 0.6);
+  font-family: 'Great Vibes', 'Brush Script MT', cursive;
+  font-size: 3.2rem;
+  line-height: 1.05;
+  font-weight: 400;
+  color: var(--green-mid);
+  text-shadow: 0 2px 8px rgba(32, 74, 44, 0.3);
 }
 
 #eCardGreeting {
   font-family: 'Great Vibes', 'Brush Script MT', cursive;
-  font-size: 2.2rem;
+  font-size: 1.7rem;
   margin: 0;
-  color: #fbe7ad;
+  color: var(--brown-2);
 }
 
 #eCardMessage {
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   line-height: 1.6;
-  color: #e7dcb8;
+  color: #3b4a30;
   margin: 0;
 }
 
-.eCardDivider {
-  height: 1px;
-  margin: 0.4rem auto;
-  width: 60%;
-  background: linear-gradient(to right, transparent, rgba(243, 217, 139, 0.7), transparent);
+.eCardOrnament {
+  font-size: 1.4rem;
+  color: var(--brown-1);
+  margin: 0.2rem 0;
+}
+
+#eCardBand {
+  background: linear-gradient(135deg, var(--brown-1), var(--brown-2));
+  color: var(--brown-text);
+  border-radius: 0.75rem;
+  padding: 1.4rem 1.4rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 #eCardDate,
 #eCardVenue {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   margin: 0;
   font-weight: 600;
 }
@@ -191,20 +273,35 @@ button.secondary {
   text-align: left;
 }
 
+#eCardBand .eCardSection {
+  margin-top: 0.9rem;
+  text-align: center;
+}
+
 .eCardSection h2 {
   font-size: 1rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #f3d98b;
-  border-bottom: 1px solid rgba(243, 217, 139, 0.3);
+  color: var(--green-mid);
+  border-bottom: 1px solid rgba(47, 107, 63, 0.25);
   padding-bottom: 0.3rem;
   margin-bottom: 0.6rem;
 }
 
+#eCardBand .eCardSection h2 {
+  color: var(--brown-text);
+  border-bottom-color: rgba(244, 236, 216, 0.35);
+}
+
 .eCardSection p {
-  color: #e7dcb8;
+  color: #3b4a30;
   line-height: 1.5;
   margin: 0;
+}
+
+#eCardBand .eCardSection p {
+  color: var(--brown-text);
+  text-align: center;
 }
 
 #eCardTimeline {
@@ -219,13 +316,15 @@ button.secondary {
 #eCardTimeline li {
   display: flex;
   gap: 0.8rem;
-  font-size: 0.95rem;
-  color: #e7dcb8;
+  font-size: 1rem;
+  color: #3b4a30;
+  border-left: 2px solid var(--brown-1);
+  padding-left: 0.7rem;
 }
 
 #eCardTimeline .time {
   flex: 0 0 auto;
-  color: #f3d98b;
+  color: var(--brown-2);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -236,7 +335,7 @@ button.secondary {
   left: 50%;
   transform: translateX(-50%);
   z-index: 31;
-  background: #0a0f0a;
+  background: var(--cream);
 }
 
 #controls {
@@ -249,6 +348,17 @@ button.secondary {
   gap: 0.6rem;
   flex-wrap: wrap;
   z-index: 5;
+}
+
+#controls button {
+  border-color: rgba(243, 217, 139, 0.6);
+  color: #f3d98b;
+  background: rgba(10, 15, 10, 0.35);
+}
+
+#controls button:hover {
+  background: #f3d98b;
+  color: #0a0f0a;
 }
 
 #hint {

@@ -62,6 +62,11 @@ Drop your own designed e-invitation as a PNG at `assets/e-invitation.png`.
 image replaces the generated text card entirely; if it's missing, the text
 card is shown as a fallback. No code changes needed, just add the file.
 
+The fallback card's look (cream/botanical background, green script title,
+brown/gold info band, ornamental dividers, time line) is styled in
+`css/style.css` to match a purchased "Blessings of Healing" invitation
+design, so it looks reasonably close even without a custom PNG.
+
 This is a color-based heuristic, not real object recognition. It works best
 with a single leaf held against skin or a plain background, good lighting,
 and the leaf reasonably close to the camera. There's a dashed heart-shaped

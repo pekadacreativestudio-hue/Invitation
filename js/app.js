@@ -119,6 +119,8 @@
   window.addEventListener("resize", resizeCanvas);
   resizeCanvas();
 
+  document.getElementById("overlayHero").textContent = INVITE_CONFIG.heroWord;
+
   function drawVideoCover() {
     const vw = video.videoWidth || canvas.width;
     const vh = video.videoHeight || canvas.height;
@@ -505,10 +507,10 @@
     probe.src = "assets/e-invitation.png";
 
     document.getElementById("eCardHero").textContent = INVITE_CONFIG.heroWord;
-    document.getElementById("eCardGreeting").textContent = guestName;
+    document.getElementById("eCardGreeting").textContent = "Dear " + guestName + ",";
     document.getElementById("eCardMessage").textContent = INVITE_CONFIG.message;
     document.getElementById("eCardDate").textContent = "Date : " + INVITE_CONFIG.date;
-    document.getElementById("eCardVenue").textContent = "Venue - " + INVITE_CONFIG.venue;
+    document.getElementById("eCardVenue").textContent = "Venue : " + INVITE_CONFIG.venue;
     document.getElementById("eCardDressCode").textContent = INVITE_CONFIG.dressCode;
 
     const list = document.getElementById("eCardTimeline");
