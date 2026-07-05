@@ -24,7 +24,7 @@
 
   // Magical-reveal animation state: restarts each time the leaf reappears
   // after being hidden, so the invitation materializes anew each time. Each
-  // item (hero logo/word, message lines) fades + scales in with a sparkle
+  // item (hero word, message lines) fades + scales in with a sparkle
   // burst, staggered in a cascade rather than a per-character typewriter.
   let revealStart = null;
   let wasHidden = true;
@@ -32,18 +32,6 @@
   const SHOW_TRIGGER_THRESHOLD = 0.55;
   const ITEM_STAGGER_MS = 260;
   const ITEM_DURATION_MS = 700;
-
-  // An uploaded logo (assets/hero-logo.png) is drawn on the leaf in place of
-  // the hero word text, if present. Probed once at load time; falls back to
-  // the styled text hero word if missing. Intentionally NOT shown on the
-  // landing screen — revealing it before scanning would spoil the "appears
-  // on the leaf" surprise.
-  let heroLogo = null;
-  const heroLogoProbe = new Image();
-  heroLogoProbe.onload = () => {
-    heroLogo = heroLogoProbe;
-  };
-  heroLogoProbe.src = "assets/hero-logo.png";
 
   // An uploaded background photo replaces the plain cream gradient behind
   // the landing screen, if present, with a tinted scrim layered over it so
@@ -76,9 +64,9 @@
   // down or spin it wildly.
   let angleVec = { cos: 1, sin: 0 };
   let lockAngleBaseline = 0;
-  const ANGLE_ALPHA = 0.15;
-  const MIN_ANGLE_CONFIDENCE = 0.12;
-  const MAX_TILT = (35 * Math.PI) / 180;
+  const ANGLE_ALPHA = 0.12;
+  const MIN_ANGLE_CONFIDENCE = 0.22;
+  const MAX_TILT = (18 * Math.PI) / 180;
 
   function wrapAxisDelta(delta) {
     let d = delta;
@@ -182,56 +170,44 @@
     return lines;
   }
 
-  // Lays out just the hero (logo image, or styled hero word) and the message
-  // body into individual renderable items with resolved size/position
-  // (relative to the given center/half-height), but does not paint anything
-  // yet. Returns the items plus the total height they need, so the caller
-  // can shrink everything uniformly if it doesn't fit.
+  // Lays out just the hero word and the message body into individual
+  // renderable items with resolved size/position (relative to the given
+  // center/half-height), but does not paint anything yet. Returns the items
+  // plus the total height they need, so the caller can shrink everything
+  // uniformly if it doesn't fit.
   function layoutInvitation(cx, cy, rx, ry) {
     const unit = ry * 2;
     const rendered = [];
 
-    const heroMaxWidthPx = rx * 2 * 0.74;
-    if (heroLogo) {
-      const heroMaxHeightPx = unit * 0.22;
-      const scale = Math.min(heroMaxWidthPx / heroLogo.naturalWidth, heroMaxHeightPx / heroLogo.naturalHeight);
+    const heroMaxWidthPx = rx * 2 * 0.78;
+    let heroFontSize = Math.max(8, unit * 0.1);
+    const heroFontFor = (size) => "normal 400 " + size + "px " + CURSIVE_FONT;
+    ctx.font = heroFontFor(heroFontSize);
+    const longestHeroWord = INVITE_CONFIG.heroWord
+      .split(" ")
+      .reduce((a, w) => (ctx.measureText(w).width > ctx.measureText(a).width ? w : a), "");
+    while (heroFontSize > 8 && ctx.measureText(longestHeroWord).width > heroMaxWidthPx) {
+      heroFontSize *= 0.92;
+      ctx.font = heroFontFor(heroFontSize);
+    }
+    ctx.font = heroFontFor(heroFontSize);
+    for (const l of wrapLines(INVITE_CONFIG.heroWord, heroMaxWidthPx)) {
+      ctx.font = heroFontFor(heroFontSize);
       rendered.push({
-        type: "logo",
-        img: heroLogo,
-        width: heroLogo.naturalWidth * scale,
-        height: heroLogo.naturalHeight * scale,
-        gap: 0.13,
+        type: "text",
+        text: l,
+        size: heroFontSize,
+        weight: "400",
+        family: CURSIVE_FONT,
+        italic: false,
+        gold: true,
+        gap: 0.12,
+        width: ctx.measureText(l).width,
       });
-    } else {
-      let fontSize = Math.max(8, unit * 0.062);
-      const fontFor = (size) => "normal 700 " + size + "px " + SERIF_FONT;
-      ctx.font = fontFor(fontSize);
-      const longestWord = INVITE_CONFIG.heroWord
-        .split(" ")
-        .reduce((a, w) => (ctx.measureText(w).width > ctx.measureText(a).width ? w : a), "");
-      while (fontSize > 8 && ctx.measureText(longestWord).width > heroMaxWidthPx) {
-        fontSize *= 0.92;
-        ctx.font = fontFor(fontSize);
-      }
-      ctx.font = fontFor(fontSize);
-      for (const l of wrapLines(INVITE_CONFIG.heroWord, heroMaxWidthPx)) {
-        ctx.font = fontFor(fontSize);
-        rendered.push({
-          type: "text",
-          text: l,
-          size: fontSize,
-          weight: "700",
-          family: SERIF_FONT,
-          italic: false,
-          gold: true,
-          gap: 0.095,
-          width: ctx.measureText(l).width,
-        });
-      }
     }
 
     const msgMaxWidthPx = rx * 2 * 0.66;
-    let msgFontSize = Math.max(8, unit * 0.042);
+    let msgFontSize = Math.max(8, unit * 0.04);
     const msgFontFor = (size) => "italic 400 " + size + "px " + SERIF_FONT;
     ctx.font = msgFontFor(msgFontSize);
     const longestMsgWord = INVITE_CONFIG.message
@@ -252,7 +228,10 @@
         family: SERIF_FONT,
         italic: true,
         gold: false,
-        gap: i === 0 ? 0.16 : 0.062, // extra gap before the first message line stands in for the blank line
+        // extra gap before the first message line stands in for the blank
+        // line; the rest are spaced generously so the gold glow around each
+        // line doesn't visually bleed into its neighbors.
+        gap: i === 0 ? 0.17 : 0.1,
         width: ctx.measureText(l).width,
       });
     });
@@ -316,24 +295,6 @@
     ctx.fillText(line.text, cx, line.y);
     ctx.restore();
 
-    ctx.restore();
-  }
-
-  // Paints the hero logo materializing in the same way as a text line:
-  // fade + settle from slightly oversized, with a soft gold glow.
-  function paintLogo(item, progress) {
-    if (progress <= 0) return;
-    const eased = easeOut(clamp01(progress));
-    const cx = item.x0 + item.width / 2;
-    const cy = item.y;
-
-    ctx.save();
-    ctx.globalAlpha *= eased;
-    ctx.translate(cx, cy);
-    ctx.scale(1.18 - 0.18 * eased, 1.18 - 0.18 * eased);
-    ctx.shadowColor = "rgba(255, 195, 80, 0.65)";
-    ctx.shadowBlur = item.height * 0.18;
-    ctx.drawImage(item.img, -item.width / 2, -item.height / 2, item.width, item.height);
     ctx.restore();
   }
 
@@ -403,11 +364,7 @@
         }
       }
 
-      if (item.type === "logo") {
-        paintLogo(item, progress);
-      } else {
-        paintLine(item, 0, progress, now);
-      }
+      paintLine(item, 0, progress, now);
     }
 
     // Clip region is already the rotated/scaled leaf shape (set above, still

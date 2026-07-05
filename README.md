@@ -41,11 +41,10 @@ code, and time line.
   down to full size) plus a gold bloom and moving highlight sweep, cascading
   top to bottom with overlapping stagger — not a left-to-right typewriter —
   restarting each time the leaf reappears after being hidden.
-- If a file exists at `assets/hero-logo.png`, it's drawn on the leaf (with
-  the same materialize animation) in place of the styled hero word text —
-  probed once at page load, falling back to text if missing. It's
-  deliberately only used on the leaf, not the landing screen, so scanning
-  still reveals it as a surprise.
+- The hero word renders in the `Great Vibes` script font (gold, with the
+  same bloom/glow as the reference logo artwork) rather than as an uploaded
+  logo image — this reads reliably regardless of image load timing, and
+  keeps the whole invitation as live, resizable/rotatable canvas text.
 - The landing screen itself will use `assets/welcome-bg.jpg` (preferred) or
   `assets/welcome-bg.png` as its background if present, with a tinted scrim
   over it for legibility, instead of the plain cream gradient.
