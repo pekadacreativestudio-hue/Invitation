@@ -30,6 +30,13 @@
   let wasHidden = true;
   const HIDE_THRESHOLD = 0.12;
   const SHOW_TRIGGER_THRESHOLD = 0.55;
+  // The leaf's bounding-box width, as a fraction of the screen width, that
+  // counts as "filling" the full-screen scan guide. The dashed reticle (and
+  // hint text) stays up — even once a leaf is detected — until the leaf is
+  // actually held this close/large, so the invitation only starts appearing
+  // once the scanning area is genuinely filled, not just as soon as any
+  // leaf-colored blob is seen.
+  const FILL_TRIGGER_THRESHOLD = 0.58;
   const ITEM_STAGGER_MS = 260;
   const ITEM_DURATION_MS = 700;
 
@@ -383,14 +390,23 @@
     return allDone;
   }
 
+  // The dashed guide now fills almost the entire mobile screen (rather than
+  // a modest centered shape) so the user holds the leaf up close enough to
+  // actually fill the frame before the invitation starts appearing.
+  // betelLeafPath's bezier control points put its widest extent at
+  // roughly rx*2.7 and its full top-to-bottom extent at roughly ry*1.78,
+  // so those factors are inverted here to size rx/ry from the viewport.
   function drawHintReticle() {
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
-    const r = Math.min(canvas.width, canvas.height) * 0.32;
+    const margin = 0.94;
+    const rxFromWidth = (canvas.width * margin) / 2.7;
+    const ryFromHeight = (canvas.height * margin) / 1.78;
+    const r = Math.min(rxFromWidth, ryFromHeight / 1.2);
     ctx.save();
-    ctx.setLineDash([10, 8]);
+    ctx.setLineDash([14, 10]);
     ctx.strokeStyle = "rgba(255,255,255,0.55)";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     betelLeafPath(cx, cy, r, r * 1.2);
     ctx.stroke();
     ctx.restore();
@@ -419,16 +435,34 @@
       smooth.w = lerp(smooth.w, pw, SMOOTH_ALPHA);
       smooth.h = lerp(smooth.h, ph, SMOOTH_ALPHA);
       smooth.visible = lerp(smooth.visible, 1, 0.25);
-      hint.hidden = true;
     } else {
       smooth.visible = lerp(smooth.visible, 0, 0.1);
-      if (smooth.visible < 0.05) drawHintReticle();
+    }
+
+    // Instantaneous (not smoothed) fill ratio, so the "has the user filled
+    // the scan area" check reacts immediately rather than lagging behind an
+    // EMA — the reticle/hint stays up and the text withholds itself for as
+    // long as the leaf is detected but still too small/far.
+    const instantFillRatio = detection ? detection.w : 0;
+
+    // Keep showing the full-screen dashed guide (and hint text) until a
+    // qualifying leaf — confidently detected AND filling the scan area —
+    // actually locks in, rather than hiding it the instant any leaf-colored
+    // blob appears.
+    if (wasHidden) {
+      drawHintReticle();
+    } else {
+      hint.hidden = true;
     }
 
     let justLocked = false;
     if (smooth.visible < HIDE_THRESHOLD) {
       wasHidden = true;
-    } else if (wasHidden && smooth.visible > SHOW_TRIGGER_THRESHOLD) {
+    } else if (
+      wasHidden &&
+      smooth.visible > SHOW_TRIGGER_THRESHOLD &&
+      instantFillRatio > FILL_TRIGGER_THRESHOLD
+    ) {
       revealStart = now;
       wasHidden = false;
       justLocked = true;

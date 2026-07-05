@@ -17,9 +17,14 @@ time line).
   leaf's silhouette (`betelLeafPath`), and redraws it every frame — giving
   the effect of text "painted" onto the leaf. The leaf itself is left
   untouched (no darkening overlay) — only the gold text is drawn over it.
-- A dashed heart-shaped reticle guides you to the target while scanning;
-  it disappears the moment a leaf is detected, and no outline is drawn
-  around the leaf once tracking begins.
+- A dashed heart-shaped reticle sized to fill nearly the full phone screen
+  guides you to the target while scanning. It (and the "Show the betel
+  leaf..." hint) stays up even once a leaf-colored blob is detected —
+  only once the leaf's tracked width fills enough of the frame
+  (`FILL_TRIGGER_THRESHOLD` in `js/app.js`) does the reticle disappear and
+  the invitation start materializing, so you're guided to actually fill
+  the scan area rather than the text appearing for any small/distant leaf.
+  No outline is drawn around the leaf once tracking begins.
 - As the leaf fills more of the frame (you move the phone closer), the whole
   invitation zooms in beyond its tracked size (see `ZOOM_START`/`ZOOM_END`/
   `ZOOM_BOOST` in `js/app.js`) so the text stays comfortably readable up
