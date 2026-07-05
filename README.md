@@ -38,13 +38,23 @@ time line).
   so less content fits comfortably there). Date, venue, dress code, and
   time line only appear on the full e-invitation after Accept is tapped.
 - Each item materializes with a fade + scale-settle (from slightly oversized
-  down to full size) plus a gold bloom and moving highlight sweep, cascading
-  top to bottom with overlapping stagger — not a left-to-right typewriter —
-  restarting each time the leaf reappears after being hidden.
-- The hero word renders in the `Great Vibes` script font (gold, with the
-  same bloom/glow as the reference logo artwork) rather than as an uploaded
-  logo image — this reads reliably regardless of image load timing, and
-  keeps the whole invitation as live, resizable/rotatable canvas text.
+  down to full size), cascading top to bottom with overlapping stagger —
+  not a left-to-right typewriter — restarting each time the leaf reappears
+  after being hidden. Each line gets two shadow passes before its crisp
+  fill: a dark one for contrast against a bright green leaf, then a warm
+  gold glow for the magical feel, plus a moving highlight sweep once fully
+  revealed.
+- Color palette: the hero word is light gold, the message is ivory. Both
+  colors and the shadow treatment are in `paintLine` (`js/app.js`) if you
+  want to adjust them.
+- The hero word renders in the `Great Vibes` script font (gold, matching the
+  landing screen's "An Invitation Awaits" heading) rather than as an
+  uploaded logo image — this reads reliably regardless of image load
+  timing, and keeps the whole invitation as live, resizable canvas text.
+- `INVITE_CONFIG.message` in `js/config.js` is a list of forced lines (not
+  one auto-wrapped paragraph) — each string is its own line, and an empty
+  string `""` is a blank spacer. Lines are still safety-wrapped further if
+  they don't fit a narrow/small leaf.
 - The landing screen itself will use `assets/welcome-bg.jpg` (preferred) or
   `assets/welcome-bg.png` as its background if present, with a tinted scrim
   over it for legibility, instead of the plain cream gradient.
@@ -56,7 +66,12 @@ time line).
   your hand moves. (Rotation tracking based on the leaf's estimated tilt
   was tried and removed — it didn't reliably match the leaf's actual
   visible angle in practice, so the invitation stays upright and just
-  follows the leaf's position/size.)
+  follows the leaf's position/size.) The tracked size (`smooth.w`/`smooth.h`)
+  is snapped to the instantaneous detection at the exact lock moment rather
+  than used as-is — its smoothing average hasn't fully caught up that early
+  (same class of issue the old rotation tracking had), and locking with a
+  still-converging, too-small size would wrap the message tighter than the
+  leaf actually allows, permanently.
 - Once every item has finished materializing, an **Accept Invitation** button
   fades in (`js/app.js`, driven by the reveal-complete flag). Tapping it stops
   the camera and shows `#eCard`, which displays `assets/e-invitation.png`

@@ -191,34 +191,48 @@
       });
     }
 
-    const msgMaxWidthPx = rx * 2 * 0.66;
-    let msgFontSize = Math.max(8, unit * 0.04);
+    // message is a list of forced lines (not one flowing paragraph) — an
+    // empty string is a blank spacer between the two sentences. Each
+    // non-empty line is still safety-wrapped in case it doesn't fit a
+    // narrow/small leaf, but normally renders as the single line given.
+    const msgMaxWidthPx = rx * 2 * 0.87;
+    let msgFontSize = Math.max(8, unit * 0.032);
     const msgFontFor = (size) => "italic 400 " + size + "px " + SERIF_FONT;
-    ctx.font = msgFontFor(msgFontSize);
     const longestMsgWord = INVITE_CONFIG.message
+      .join(" ")
       .split(" ")
       .reduce((a, w) => (ctx.measureText(w).width > ctx.measureText(a).width ? w : a), "");
+    ctx.font = msgFontFor(msgFontSize);
     while (msgFontSize > 8 && ctx.measureText(longestMsgWord).width > msgMaxWidthPx) {
       msgFontSize *= 0.92;
       ctx.font = msgFontFor(msgFontSize);
     }
-    ctx.font = msgFontFor(msgFontSize);
-    wrapLines(INVITE_CONFIG.message, msgMaxWidthPx).forEach((l, i) => {
+
+    let pendingGap = 0.17; // gap before the first message line stands in for the blank line after the hero word
+    INVITE_CONFIG.message.forEach((line) => {
+      if (line === "") {
+        pendingGap += 0.13; // blank spacer: fold into the gap before the next real line
+        return;
+      }
       ctx.font = msgFontFor(msgFontSize);
-      rendered.push({
-        type: "text",
-        text: l,
-        size: msgFontSize,
-        weight: "400",
-        family: SERIF_FONT,
-        italic: true,
-        gold: false,
-        // extra gap before the first message line stands in for the blank
-        // line; the rest are spaced generously so the gold glow around each
-        // line doesn't visually bleed into its neighbors.
-        gap: i === 0 ? 0.17 : 0.1,
-        width: ctx.measureText(l).width,
+      const subLines = wrapLines(line, msgMaxWidthPx);
+      subLines.forEach((l, i) => {
+        ctx.font = msgFontFor(msgFontSize);
+        rendered.push({
+          type: "text",
+          text: l,
+          size: msgFontSize,
+          weight: "400",
+          family: SERIF_FONT,
+          italic: true,
+          gold: false,
+          // Gaps are generous so the glow around each line doesn't visually
+          // bleed into its neighbors.
+          gap: i === 0 ? pendingGap : 0.1,
+          width: ctx.measureText(l).width,
+        });
       });
+      pendingGap = 0.1;
     });
 
     const totalHeight = rendered.reduce((sum, r) => sum + unit * r.gap, 0);
@@ -234,8 +248,10 @@
 
   // Paints one line materializing in: fades and settles from slightly
   // oversized down to full size (rather than a left-to-right typewriter
-  // wipe), with a soft gold bloom, a crisp fill (gradient for the hero
-  // word), and a moving highlight sweep once revealed.
+  // wipe). Two shadow passes first — a dark one for contrast against a
+  // bright green leaf, then a warm gold glow for the magical feel — then a
+  // crisp fill (light gold for the hero word, ivory for the message) and a
+  // moving highlight sweep once revealed.
   function paintLine(line, cx, progress, now) {
     if (progress <= 0) return;
     const eased = easeOut(clamp01(progress));
@@ -250,22 +266,25 @@
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    ctx.shadowColor = "rgba(255, 195, 80, 0.85)";
-    ctx.shadowBlur = line.size * (line.gold ? 0.55 : 0.4);
-    ctx.fillStyle = "#f3d98b";
+    const fillColor = line.gold ? "#f6dfa3" : "#fffdf3";
+
+    // Dark contrast shadow so the text stays legible against a bright leaf.
+    ctx.shadowColor = "rgba(8, 25, 12, 0.8)";
+    ctx.shadowBlur = line.size * 0.32;
+    ctx.shadowOffsetY = line.size * 0.03;
+    ctx.fillStyle = fillColor;
     ctx.fillText(line.text, cx, line.y);
     ctx.fillText(line.text, cx, line.y);
 
+    // Warm gold magic glow, softer than the contrast shadow so it doesn't
+    // fight legibility.
+    ctx.shadowOffsetY = 0;
+    ctx.shadowColor = "rgba(255, 205, 110, 0.75)";
+    ctx.shadowBlur = line.size * (line.gold ? 0.5 : 0.32);
+    ctx.fillText(line.text, cx, line.y);
+
     ctx.shadowBlur = 0;
-    if (line.gold) {
-      const g = ctx.createLinearGradient(0, line.y - line.size * 0.55, 0, line.y + line.size * 0.55);
-      g.addColorStop(0, "#fff6d8");
-      g.addColorStop(0.5, "#f0c34d");
-      g.addColorStop(1, "#b6841f");
-      ctx.fillStyle = g;
-    } else {
-      ctx.fillStyle = "#fbe7ad";
-    }
+    ctx.fillStyle = fillColor;
     ctx.fillText(line.text, cx, line.y);
 
     const band = line.width * 0.16 + 1;
@@ -356,7 +375,7 @@
     // absolute coordinates their persisted x/y were computed in, while
     // staying confined to the tilted leaf outline via the still-active clip.
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    Sparkles.spawnAmbient({ cx, cy, rx: rx * 0.85, ry: ry * 0.85 }, dt, 6);
+    Sparkles.spawnAmbient({ cx, cy, rx: rx * 0.85, ry: ry * 0.85 }, dt, 9);
     Sparkles.draw(ctx);
 
     ctx.restore();
@@ -406,22 +425,39 @@
       if (smooth.visible < 0.05) drawHintReticle();
     }
 
+    let justLocked = false;
+    if (smooth.visible < HIDE_THRESHOLD) {
+      wasHidden = true;
+    } else if (wasHidden && smooth.visible > SHOW_TRIGGER_THRESHOLD) {
+      revealStart = now;
+      wasHidden = false;
+      justLocked = true;
+      // smooth.w/h may still be mid-convergence this early (the EMA only
+      // started averaging once the leaf came into view, same issue the
+      // rotation tracking used to have) — snap to the instantaneous
+      // reading so the frozen layout's reference size matches the leaf's
+      // real current size, not a lagging average still catching up. Without
+      // this, the layout could freeze at a too-small size and wrap text
+      // more tightly than the leaf actually needs.
+      if (detection) {
+        smooth.w = detection.w * canvas.width;
+        smooth.h = detection.h * canvas.height;
+      }
+      Sparkles.clear();
+    }
+
     // The closer the leaf gets (the more of the frame it fills), the more
     // the invitation zooms in past its tracked size, so it stays readable
     // up close instead of shrinking off the edges of a small phone screen.
+    // Computed after the possible snap above so it reflects the corrected size.
     const fillRatio = smooth.w / canvas.width;
     const zoomT = clamp01((fillRatio - ZOOM_START) / (ZOOM_END - ZOOM_START));
     const zoom = 1 + easeOut(zoomT) * ZOOM_BOOST;
     const rxNow = (smooth.w * zoom) / 2;
     const ryNow = (smooth.h * zoom) / 2;
 
-    if (smooth.visible < HIDE_THRESHOLD) {
-      wasHidden = true;
-    } else if (wasHidden && smooth.visible > SHOW_TRIGGER_THRESHOLD) {
-      revealStart = now;
-      wasHidden = false;
+    if (justLocked) {
       lockInvitation(rxNow, ryNow);
-      Sparkles.clear();
     }
 
     let fullyRevealed = false;
