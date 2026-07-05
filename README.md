@@ -36,6 +36,17 @@ scrollable e-invitation with the date, venue, dress code, and time line.
   hero word — restarting each time the leaf reappears after being hidden.
   The guest's name (typed on the landing screen) is rendered as its own line
   in script, right under the hero word.
+- The wrapping/font-size layout is computed **once**, the moment the leaf
+  locks in (`lockInvitation` in `js/app.js`), using the leaf's size at that
+  instant as the reference frame. After that, moving/zooming/tilting the
+  leaf only pans, scales, and rotates that frozen layout via a canvas
+  transform — it never re-wraps or re-arranges, so the text doesn't visibly
+  shuffle around as your hand moves.
+- Leaf tilt is estimated via PCA on the detected blob (`blobOrientation` in
+  `js/leaf-detect.js`) and applied as a rotation. Because an axis angle is
+  ambiguous by 180° (it's a line, not a direction), only the *change* in
+  tilt since lock is used — not the raw absolute angle — and it's clamped
+  to ±35°, so a noisy reading can't flip the invitation upside down.
 - Once every line has finished writing, an **Accept Invitation** button fades
   in (`js/app.js`, driven by the reveal-complete flag). Tapping it stops the
   camera and shows `#eCard`. By default that's a plain HTML/CSS page

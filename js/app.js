@@ -33,6 +33,30 @@
   const MS_PER_CHAR = 42;
   const MIN_LINE_MS = 260;
 
+  // The text layout (wrapping, font sizes, positions) is computed ONCE per
+  // "capture" — the moment the leaf locks in — and cached here. After that,
+  // the leaf moving/zooming/tilting only pans, scales, and rotates this
+  // frozen layout; it never re-wraps or re-arranges.
+  let cachedLayout = null;
+
+  // Leaf tilt tracking: the detector's axis angle is ambiguous by 180° (it's
+  // a line, not a direction), so we track it as a smoothed double-angle unit
+  // vector, and only ever use the *change* since lock (not the raw absolute
+  // angle) — clamped, so a noisy detection can't flip the invitation upside
+  // down or spin it wildly.
+  let angleVec = { cos: 1, sin: 0 };
+  let lockAngleBaseline = 0;
+  const ANGLE_ALPHA = 0.15;
+  const MIN_ANGLE_CONFIDENCE = 0.12;
+  const MAX_TILT = (35 * Math.PI) / 180;
+
+  function wrapAxisDelta(delta) {
+    let d = delta;
+    while (d > Math.PI / 2) d -= Math.PI;
+    while (d <= -Math.PI / 2) d += Math.PI;
+    return d;
+  }
+
   const CURSIVE_FONT = "'Great Vibes', 'Brush Script MT', 'Segoe Script', cursive";
   const SERIF_FONT = "'Cormorant Garamond', Georgia, 'Times New Roman', serif";
 
@@ -285,54 +309,70 @@
     return null;
   }
 
-  function drawInvitationOnLeaf(cx, cy, w, h, now, dt) {
+  // Computes and freezes the layout exactly once per "capture" — using the
+  // leaf's size at that instant as the reference frame. Every later frame
+  // just scales/rotates/pans this frozen layout to match the live leaf.
+  function lockInvitation(refRx, refRy) {
+    const safeCyLocal = refRy * 0.06;
+    const safeHalfHeightLocal = refRy * 0.46;
+    const { items, totalHeight } = layoutInvitation(0, safeCyLocal, refRx, safeHalfHeightLocal);
+    const fitScale = Math.min(1, (safeHalfHeightLocal * 2) / totalHeight);
+    cachedLayout = { items, refRx, refRy, safeCyLocal, fitScale };
+  }
+
+  function drawInvitationOnLeaf(cx, cy, w, h, angle, now, dt) {
+    if (!cachedLayout) return false;
     const rx = w / 2;
     const ry = h / 2;
 
     ctx.save();
-    betelLeafPath(cx, cy, rx, ry);
-    ctx.clip();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.scale(rx / cachedLayout.refRx, ry / cachedLayout.refRy);
 
     // The heart shape narrows sharply at the top notch and the bottom tip,
-    // so text is laid out within a smaller interior band — shifted slightly
+    // so text was laid out within a smaller interior band — shifted slightly
     // below center, where the shape stays widest — instead of the full
     // height, which would push the first/last lines into the narrow parts
     // and get them clipped by the silhouette.
-    const safeCy = cy + ry * 0.06;
-    const safeHalfHeight = ry * 0.46;
-    const { items: rendered, totalHeight } = layoutInvitation(cx, safeCy, rx, safeHalfHeight);
-    const scale = Math.min(1, (safeHalfHeight * 2) / totalHeight);
-    const toScreen = (x, y) => ({ x: cx + (x - cx) * scale, y: safeCy + (y - safeCy) * scale });
+    betelLeafPath(0, 0, cachedLayout.refRx, cachedLayout.refRy);
+    ctx.clip();
 
-    ctx.save();
-    if (scale < 1) {
-      ctx.translate(cx, safeCy);
-      ctx.scale(scale, scale);
-      ctx.translate(-cx, -safeCy);
+    if (cachedLayout.fitScale < 1) {
+      const scy = cachedLayout.safeCyLocal;
+      ctx.translate(0, scy);
+      ctx.scale(cachedLayout.fitScale, cachedLayout.fitScale);
+      ctx.translate(0, -scy);
     }
 
     let cursor = 0;
     let penTip = null;
     let allDone = revealStart != null;
-    for (const item of rendered) {
+    for (const item of cachedLayout.items) {
       const durationMs = item.type === "ornament" ? 450 : Math.max(MIN_LINE_MS, item.text.length * MS_PER_CHAR);
       const elapsed = revealStart == null ? durationMs : now - revealStart - cursor;
       const progress = clamp01(elapsed / durationMs);
       if (progress < 1) allDone = false;
       if (item.type === "ornament") {
-        paintOrnament(item, cx, progress);
+        paintOrnament(item, 0, progress);
       } else {
-        const tip = paintLine(item, cx, progress, now);
+        const tip = paintLine(item, 0, progress, now);
         if (tip) penTip = tip;
       }
       cursor += durationMs;
     }
-    ctx.restore();
 
     if (penTip) {
-      const screenTip = toScreen(penTip.x, penTip.y);
+      const m = ctx.getTransform();
+      const screenTip = m.transformPoint(new DOMPoint(penTip.x, penTip.y));
       Sparkles.spawnBurst(screenTip.x, screenTip.y, 1, { life: 500 + Math.random() * 300, size: 1.5 + Math.random() * 2, spread: 40, rise: 15 });
     }
+
+    // Clip region is already the rotated/scaled leaf shape (set above, still
+    // active). Reset the CTM to identity so sparkles draw in the same
+    // absolute coordinates their persisted x/y were computed in, while
+    // staying confined to the tilted leaf outline via the still-active clip.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     Sparkles.spawnAmbient({ cx, cy, rx: rx * 0.85, ry: ry * 0.85 }, dt, 6);
     Sparkles.draw(ctx);
 
@@ -378,31 +418,59 @@
       smooth.h = lerp(smooth.h, ph, SMOOTH_ALPHA);
       smooth.visible = lerp(smooth.visible, 1, 0.25);
       hint.hidden = true;
+
+      if (detection.angleConfidence > MIN_ANGLE_CONFIDENCE) {
+        const a = ANGLE_ALPHA * detection.angleConfidence;
+        angleVec.cos = lerp(angleVec.cos, Math.cos(2 * detection.angle), a);
+        angleVec.sin = lerp(angleVec.sin, Math.sin(2 * detection.angle), a);
+      }
     } else {
       smooth.visible = lerp(smooth.visible, 0, 0.1);
       if (smooth.visible < 0.05) drawHintReticle();
     }
+
+    // The closer the leaf gets (the more of the frame it fills), the more
+    // the invitation zooms in past its tracked size, so it stays readable
+    // up close instead of shrinking off the edges of a small phone screen.
+    const fillRatio = smooth.w / canvas.width;
+    const zoomT = clamp01((fillRatio - ZOOM_START) / (ZOOM_END - ZOOM_START));
+    const zoom = 1 + easeOut(zoomT) * ZOOM_BOOST;
+    const rxNow = (smooth.w * zoom) / 2;
+    const ryNow = (smooth.h * zoom) / 2;
 
     if (smooth.visible < HIDE_THRESHOLD) {
       wasHidden = true;
     } else if (wasHidden && smooth.visible > SHOW_TRIGGER_THRESHOLD) {
       revealStart = now;
       wasHidden = false;
+      // The angle EMA may still be mid-convergence this early (it only
+      // started accumulating once the leaf came into view) — snap it to
+      // the instantaneous reading so "zero rotation" is defined from the
+      // real current tilt, not a lagging average that would otherwise keep
+      // drifting toward the true value for the next second or two, which
+      // would look like spurious rotation even on a leaf that never moved.
+      if (detection) {
+        angleVec = { cos: Math.cos(2 * detection.angle), sin: Math.sin(2 * detection.angle) };
+      }
+      lockAngleBaseline = 0.5 * Math.atan2(angleVec.sin, angleVec.cos);
+      lockInvitation(rxNow, ryNow);
       Sparkles.clear();
     }
 
+    // Rotation applied to the frozen layout is the *change* in leaf tilt
+    // since it was captured — not the raw absolute angle — so an ambiguous
+    // or noisy detection can't flip the invitation upside down.
+    const absoluteAngle = 0.5 * Math.atan2(angleVec.sin, angleVec.cos);
+    const renderAngle = Math.max(
+      -MAX_TILT,
+      Math.min(MAX_TILT, wrapAxisDelta(absoluteAngle - lockAngleBaseline))
+    );
+
     let fullyRevealed = false;
     if (smooth.visible > 0.05) {
-      // The closer the leaf gets (the more of the frame it fills), the more
-      // the invitation zooms in past its tracked size, so it stays readable
-      // up close instead of shrinking off the edges of a small phone screen.
-      const fillRatio = smooth.w / canvas.width;
-      const zoomT = clamp01((fillRatio - ZOOM_START) / (ZOOM_END - ZOOM_START));
-      const zoom = 1 + easeOut(zoomT) * ZOOM_BOOST;
-
       ctx.save();
       ctx.globalAlpha = Math.min(1, smooth.visible);
-      fullyRevealed = drawInvitationOnLeaf(smooth.cx, smooth.cy, smooth.w * zoom, smooth.h * zoom, now, dt);
+      fullyRevealed = drawInvitationOnLeaf(smooth.cx, smooth.cy, rxNow * 2, ryNow * 2, renderAngle, now, dt);
       ctx.restore();
     }
 
@@ -492,6 +560,9 @@
     smooth.visible = 0;
     revealStart = null;
     wasHidden = true;
+    cachedLayout = null;
+    angleVec = { cos: 1, sin: 0 };
+    lockAngleBaseline = 0;
     Sparkles.clear();
   });
 })();
