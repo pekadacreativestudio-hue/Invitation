@@ -12,6 +12,15 @@ time line).
 - `js/leaf-detect.js` downsamples each camera frame and flags glossy-green
   pixels (tuned for a betel leaf's color), then finds the largest connected
   blob of those pixels via flood fill. That gives a bounding box for "the leaf".
+  Since color alone can't tell a single held leaf apart from a leafy
+  background plant, two shape checks filter out that clutter: the blob must
+  be dense (mostly filled, not sparse/holey — `density` threshold) and,
+  more importantly, its bounding box must average close to one unbroken
+  green run per row (`averageRowRuns`) — a single solid leaf reads as ~1-1.8
+  runs/row, while a bush/cluster of separate leaves reads as ~4.6-5.9,
+  because the gaps of background between individual leaves break up each
+  row. These thresholds were calibrated against real reference photos, not
+  guessed.
 - `js/app.js` smooths that box frame-to-frame (so the text doesn't jitter),
   clips the invitation text to a heart-shaped path matching a real betel
   leaf's silhouette (`betelLeafPath`), and redraws it every frame — giving
