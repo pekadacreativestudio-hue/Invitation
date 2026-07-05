@@ -388,19 +388,36 @@
     return allDone;
   }
 
-  // The dashed guide now fills almost the entire mobile screen (rather than
-  // a modest centered shape) so the user holds the leaf up close enough to
-  // actually fill the frame before the invitation starts appearing.
-  // betelLeafPath's bezier control points put its widest extent at
-  // roughly rx*2.7 and its full top-to-bottom extent at roughly ry*1.78,
-  // so those factors are inverted here to size rx/ry from the viewport.
+  // betelLeafPath's bezier control points (rx*1.35, ry*0.78, etc.) are only
+  // an upper bound on the curve's true rendered extent — a cubic bezier
+  // stays inside its control polygon but doesn't reach its corners. So the
+  // guide's real on-screen size is measured once (by sampling the actual
+  // curve for a unit rx/ry) rather than guessed from those control-point
+  // factors, guaranteeing the dashed outline's width exactly matches
+  // FILL_TRIGGER_THRESHOLD of the screen — the same fraction that actually
+  // triggers the reveal — so filling the guide is a reliable, honest target.
+  let unitLeafExtent = null;
+  function measureUnitLeafExtent(ryFactor) {
+    const P0 = { x: 0, y: ryFactor };
+    const P1 = { x: -1.35, y: ryFactor * 0.35 };
+    const P2 = { x: -1.05, y: -ryFactor * 0.78 };
+    const P3 = { x: 0, y: -ryFactor * 0.6 };
+    let halfWidth = 0;
+    const STEPS = 200;
+    for (let i = 0; i <= STEPS; i++) {
+      const t = i / STEPS;
+      const mt = 1 - t;
+      const x = mt * mt * mt * P0.x + 3 * mt * mt * t * P1.x + 3 * mt * t * t * P2.x + t * t * t * P3.x;
+      if (Math.abs(x) > halfWidth) halfWidth = Math.abs(x);
+    }
+    return { halfWidth };
+  }
+
   function drawHintReticle() {
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
-    const margin = 0.94;
-    const rxFromWidth = (canvas.width * margin) / 2.7;
-    const ryFromHeight = (canvas.height * margin) / 1.78;
-    const r = Math.min(rxFromWidth, ryFromHeight / 1.2);
+    if (!unitLeafExtent) unitLeafExtent = measureUnitLeafExtent(1.2);
+    const r = (canvas.width * FILL_TRIGGER_THRESHOLD) / (2 * unitLeafExtent.halfWidth);
     ctx.save();
     ctx.setLineDash([14, 10]);
     ctx.strokeStyle = "rgba(255,255,255,0.55)";
