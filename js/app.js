@@ -9,12 +9,18 @@
   const overlay = document.getElementById("overlay");
   const hint = document.getElementById("hint");
   const errorBox = document.getElementById("errorBox");
+  const nameInput = document.getElementById("nameInput");
+  const acceptBtn = document.getElementById("acceptBtn");
+  const eCard = document.getElementById("eCard");
+  const backBtn = document.getElementById("backBtn");
 
   let stream = null;
   let facingMode = "environment";
   let testMode = false;
   let running = false;
   let lastTime = 0;
+  let guestName = "Friend";
+  let invitationAccepted = false;
 
   // Smoothed leaf box, in normalized [0,1] coords, plus a confidence/visibility value
   const smooth = { cx: 0.5, cy: 0.5, w: 0.4, h: 0.4, visible: 0 };
@@ -113,13 +119,12 @@
     const unit = ry * 2;
     const ornamentWidth = rx * 2 * 0.62;
     const blocks = [
-      { type: "ornament", width: ornamentWidth, gap: 0.075 },
-      { type: "text", text: INVITE_CONFIG.heroWord, size: 0.155, weight: "400", family: CURSIVE_FONT, gap: 0.13, maxWidthFactor: 0.88, gold: true },
-      { type: "text", text: "—  " + INVITE_CONFIG.greeting + "  —", size: 0.042, weight: "500", family: SERIF_FONT, italic: true, gap: 0.075, maxWidthFactor: 0.82 },
-      { type: "ornament", width: ornamentWidth * 0.8, gap: 0.075 },
-      { type: "text", text: INVITE_CONFIG.eventName, size: 0.058, weight: "600", family: SERIF_FONT, gap: 0.085, maxWidthFactor: 0.8 },
-      { type: "text", text: INVITE_CONFIG.hostNames, size: 0.05, weight: "500", family: SERIF_FONT, gap: 0.075, maxWidthFactor: 0.78 },
-      { type: "text", text: INVITE_CONFIG.date + "  •  " + INVITE_CONFIG.time, size: 0.044, weight: "400", family: SERIF_FONT, gap: 0.065, maxWidthFactor: 0.78 },
+      { type: "ornament", width: ornamentWidth, gap: 0.07 },
+      { type: "text", text: INVITE_CONFIG.heroWord, size: 0.062, weight: "700", family: SERIF_FONT, gap: 0.09, maxWidthFactor: 0.86, gold: true },
+      { type: "text", text: guestName, size: 0.1, weight: "400", family: CURSIVE_FONT, gap: 0.12, maxWidthFactor: 0.84 },
+      { type: "ornament", width: ornamentWidth * 0.8, gap: 0.065 },
+      { type: "text", text: INVITE_CONFIG.message, size: 0.04, weight: "400", family: SERIF_FONT, italic: true, gap: 0.06, maxWidthFactor: 0.8 },
+      { type: "text", text: "Date : " + INVITE_CONFIG.date, size: 0.044, weight: "600", family: SERIF_FONT, gap: 0.07, maxWidthFactor: 0.8 },
       { type: "text", text: INVITE_CONFIG.venue, size: 0.042, weight: "400", family: SERIF_FONT, gap: 0.06, maxWidthFactor: 0.78 },
     ];
 
@@ -285,10 +290,12 @@
 
     let cursor = 0;
     let penTip = null;
+    let allDone = revealStart != null;
     for (const item of rendered) {
       const durationMs = item.type === "ornament" ? 450 : Math.max(MIN_LINE_MS, item.text.length * MS_PER_CHAR);
       const elapsed = revealStart == null ? durationMs : now - revealStart - cursor;
       const progress = clamp01(elapsed / durationMs);
+      if (progress < 1) allDone = false;
       if (item.type === "ornament") {
         paintOrnament(item, cx, progress);
       } else {
@@ -313,6 +320,8 @@
     ctx.lineWidth = Math.max(1, h * 0.006);
     ctx.stroke();
     ctx.restore();
+
+    return allDone;
   }
 
   function drawHintReticle() {
@@ -378,17 +387,50 @@
       Sparkles.clear();
     }
 
+    let fullyRevealed = false;
     if (smooth.visible > 0.05) {
       ctx.save();
       ctx.globalAlpha = Math.min(1, smooth.visible);
-      drawInvitationOnLeaf(smooth.cx, smooth.cy, smooth.w, smooth.h, now, dt);
+      fullyRevealed = drawInvitationOnLeaf(smooth.cx, smooth.cy, smooth.w, smooth.h, now, dt);
       ctx.restore();
+    }
+
+    if (!invitationAccepted) {
+      acceptBtn.classList.toggle("visible", fullyRevealed && smooth.visible > 0.5);
     }
 
     requestAnimationFrame(frame);
   }
 
+  function captureName() {
+    const v = nameInput.value.trim();
+    guestName = v || "Friend";
+  }
+
+  function populateECard() {
+    document.getElementById("eCardHero").textContent = INVITE_CONFIG.heroWord;
+    document.getElementById("eCardGreeting").textContent = guestName;
+    document.getElementById("eCardMessage").textContent = INVITE_CONFIG.message;
+    document.getElementById("eCardDate").textContent = "Date : " + INVITE_CONFIG.date;
+    document.getElementById("eCardVenue").textContent = "Venue - " + INVITE_CONFIG.venue;
+    document.getElementById("eCardDressCode").textContent = INVITE_CONFIG.dressCode;
+
+    const list = document.getElementById("eCardTimeline");
+    list.innerHTML = "";
+    for (const item of INVITE_CONFIG.timeline) {
+      const li = document.createElement("li");
+      const time = document.createElement("span");
+      time.className = "time";
+      time.textContent = item.time;
+      const activity = document.createElement("span");
+      activity.textContent = item.activity;
+      li.append(time, activity);
+      list.appendChild(li);
+    }
+  }
+
   startBtn.addEventListener("click", async () => {
+    captureName();
     await startCamera();
     if (running) requestAnimationFrame(frame);
   });
@@ -399,6 +441,7 @@
   });
 
   testBtn.addEventListener("click", () => {
+    captureName();
     stopCamera();
     overlay.hidden = true;
     errorBox.hidden = true;
@@ -412,5 +455,26 @@
     link.download = "invitation-snapshot.png";
     link.href = canvas.toDataURL("image/png");
     link.click();
+  });
+
+  acceptBtn.addEventListener("click", () => {
+    invitationAccepted = true;
+    running = false;
+    stopCamera();
+    acceptBtn.classList.remove("visible");
+    populateECard();
+    eCard.hidden = false;
+  });
+
+  backBtn.addEventListener("click", () => {
+    invitationAccepted = false;
+    eCard.hidden = true;
+    testMode = false;
+    overlay.hidden = false;
+    hint.hidden = true;
+    smooth.visible = 0;
+    revealStart = null;
+    wasHidden = true;
+    Sparkles.clear();
   });
 })();

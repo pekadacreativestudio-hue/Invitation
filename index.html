@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=3" />
+<link rel="stylesheet" href="css/style.css?v=4" />
 </head>
 <body>
   <video id="camera" playsinline autoplay muted></video>
@@ -17,9 +17,10 @@
   <div id="overlay">
     <h1>An Invitation Awaits</h1>
     <p>
-      Hold a betel leaf on your palm and point your camera at it.
-      The invitation will appear right on the leaf.
+      Enter your name, then hold a real betel leaf on your palm and point the
+      camera at it. Your personal invitation will appear right on the leaf.
     </p>
+    <input id="nameInput" type="text" placeholder="Your name" autocomplete="name" maxlength="40" />
     <button id="startBtn">Open Camera</button>
     <button id="testBtn" class="secondary">Preview without camera</button>
   </div>
@@ -32,9 +33,31 @@
     <button id="snapBtn" class="secondary">Save Snapshot</button>
   </div>
 
-  <script src="js/config.js?v=3"></script>
-  <script src="js/leaf-detect.js?v=3"></script>
-  <script src="js/sparkle-fx.js?v=3"></script>
-  <script src="js/app.js?v=3"></script>
+  <button id="acceptBtn">Accept Invitation</button>
+
+  <div id="eCard" hidden>
+    <div id="eCardContent">
+      <div id="eCardHero"></div>
+      <p id="eCardGreeting"></p>
+      <p id="eCardMessage"></p>
+      <div class="eCardDivider"></div>
+      <p id="eCardDate"></p>
+      <p id="eCardVenue"></p>
+      <div class="eCardSection">
+        <h2>Dress Code</h2>
+        <p id="eCardDressCode"></p>
+      </div>
+      <div class="eCardSection">
+        <h2>Time Line</h2>
+        <ul id="eCardTimeline"></ul>
+      </div>
+      <button id="backBtn" class="secondary">Back</button>
+    </div>
+  </div>
+
+  <script src="js/config.js?v=4"></script>
+  <script src="js/leaf-detect.js?v=4"></script>
+  <script src="js/sparkle-fx.js?v=4"></script>
+  <script src="js/app.js?v=4"></script>
 </body>
 </html>

@@ -1,8 +1,10 @@
 # AR Betel Leaf Invitation
 
-Open this page on a phone, hold a real betel leaf on your palm, and point the
-camera at it. The invitation wording appears overlaid directly on the leaf
-and tracks it as you move your hand — a simple augmented-reality invite.
+Open this page on a phone, type your name, then hold a real betel leaf on
+your palm and point the camera at it. Your personalized invitation writes
+itself onto the leaf and tracks it as you move your hand. Once the writing
+finishes, an **Accept Invitation** button appears; tapping it opens a full
+scrollable e-invitation with the date, venue, dress code, and time line.
 
 ## How it works
 
@@ -24,6 +26,13 @@ and tracks it as you move your hand — a simple augmented-reality invite.
 - The text itself writes on letter-by-letter (per line), with a gold bloom,
   a moving highlight sweep, and hand-drawn filigree ornaments above/below the
   hero word — restarting each time the leaf reappears after being hidden.
+  The guest's name (typed on the landing screen) is rendered as its own line
+  in script, right under the hero word.
+- Once every line has finished writing, an **Accept Invitation** button fades
+  in (`js/app.js`, driven by the reveal-complete flag). Tapping it stops the
+  camera and shows `#eCard` — a plain HTML/CSS page populated from
+  `INVITE_CONFIG` with the full message, date, venue, dress code, and time
+  line. A **Back** button returns to the landing screen.
 
 This is a color-based heuristic, not real object recognition. It works best
 with a single leaf held against skin or a plain background, good lighting,
@@ -38,19 +47,25 @@ details:
 
 ```js
 const INVITE_CONFIG = {
-  heroWord: "Invitation",
-  greeting: "You are cordially invited",
-  eventName: "Betel Leaf Ceremony",
-  hostNames: "The Family of ___ & ___",
-  date: "DD Month YYYY",
-  time: "H:MM AM/PM",
-  venue: "Venue Name, City",
-  message: "Please join us in celebration and blessings",
+  heroWord: "🍀 Blessings of Healing 🍀",
+  message:
+    "You are honorably invited to awaken your inherent healing gifts. Join us to uncover the deep methods of bringing healing to others.",
+  date: "19th July 2026",
+  venue: "Hilton Colombo | Onyx",
+  dressCode: "Traditional attire, Ethnic attire or Ethereal Attire (comfortable for meditations)",
+  timeline: [
+    { time: "7:30am – 9:30am", activity: "Theory Training" },
+    { time: "9:30am – 10:00am", activity: "Q&A" },
+    { time: "10:00am – 10:45am", activity: "Harmonious Pause & Refreshments" },
+    { time: "10:45am – 11:45am", activity: "Meditation" },
+  ],
 };
 ```
 
-`heroWord` is the big script title (ornaments above/below it); `greeting` is
-the small subtitle shown with flanking dashes underneath it.
+`heroWord` and `message` appear on the leaf (along with the guest's name and
+date/venue); `dressCode` and `timeline` appear only on the full e-invitation
+after Accept is tapped, since they're too much text to fit gracefully on a
+small leaf-tracked AR overlay.
 
 ## Run it locally
 
