@@ -38,11 +38,31 @@
   const CURSIVE_FONT = "'Great Vibes', 'Brush Script MT', 'Segoe Script', cursive";
   const SERIF_FONT = "'Cormorant Garamond', Georgia, 'Times New Roman', serif";
 
+  // How close the leaf has to get (as a fraction of screen width) before the
+  // invitation starts zooming in beyond the leaf's actual tracked size, so
+  // the text stays comfortably readable when the leaf fills the frame.
+  const ZOOM_START = 0.34;
+  const ZOOM_END = 0.62;
+  const ZOOM_BOOST = 0.55;
+
   function lerp(a, b, t) {
     return a + (b - a) * t;
   }
   function clamp01(v) {
     return Math.max(0, Math.min(1, v));
+  }
+  function easeOut(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  // A heart-shaped path with a pointed tip, matching a real betel leaf's
+  // silhouette — used for the pre-scan guide and the on-leaf text mask.
+  function betelLeafPath(cx, cy, rx, ry) {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + ry);
+    ctx.bezierCurveTo(cx - rx * 1.35, cy + ry * 0.35, cx - rx * 1.05, cy - ry * 0.78, cx, cy - ry * 0.6);
+    ctx.bezierCurveTo(cx + rx * 1.05, cy - ry * 0.78, cx + rx * 1.35, cy + ry * 0.35, cx, cy + ry);
+    ctx.closePath();
   }
 
   async function startCamera() {
@@ -214,10 +234,6 @@
     ctx.restore();
   }
 
-  function easeOut(t) {
-    return 1 - Math.pow(1 - t, 3);
-  }
-
   // Paints one line with a soft gold bloom, a crisp fill (gradient for the
   // hero word), and a moving highlight sweep, clipped to its reveal progress.
   function paintLine(line, cx, progress, now) {
@@ -276,15 +292,16 @@
     const ry = h / 2;
 
     ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    betelLeafPath(cx, cy, rx, ry);
     ctx.clip();
 
+    // Just enough of a scrim for the gold text to stay legible — the real
+    // leaf underneath should still read as itself, only slightly darkened.
     const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry));
-    grad.addColorStop(0, "rgba(10, 30, 15, 0.55)");
-    grad.addColorStop(1, "rgba(10, 30, 15, 0.25)");
+    grad.addColorStop(0, "rgba(10, 25, 12, 0.32)");
+    grad.addColorStop(1, "rgba(10, 25, 12, 0.14)");
     ctx.fillStyle = grad;
-    ctx.fillRect(cx - rx, cy - ry, rx * 2, ry * 2);
+    ctx.fillRect(cx - rx * 1.4, cy - ry, rx * 2.8, ry * 2);
 
     const rendered = layoutInvitation(cx, cy, rx, ry);
 
@@ -314,8 +331,7 @@
     ctx.restore();
 
     ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    betelLeafPath(cx, cy, rx, ry);
     ctx.strokeStyle = "rgba(243, 217, 139, 0.55)";
     ctx.lineWidth = Math.max(1, h * 0.006);
     ctx.stroke();
@@ -327,13 +343,12 @@
   function drawHintReticle() {
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
-    const r = Math.min(canvas.width, canvas.height) * 0.22;
+    const r = Math.min(canvas.width, canvas.height) * 0.32;
     ctx.save();
     ctx.setLineDash([10, 8]);
     ctx.strokeStyle = "rgba(255,255,255,0.55)";
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, r, r * 1.15, 0, 0, Math.PI * 2);
+    betelLeafPath(cx, cy, r, r * 1.2);
     ctx.stroke();
     ctx.restore();
     hint.hidden = false;
@@ -389,9 +404,16 @@
 
     let fullyRevealed = false;
     if (smooth.visible > 0.05) {
+      // The closer the leaf gets (the more of the frame it fills), the more
+      // the invitation zooms in past its tracked size, so it stays readable
+      // up close instead of shrinking off the edges of a small phone screen.
+      const fillRatio = smooth.w / canvas.width;
+      const zoomT = clamp01((fillRatio - ZOOM_START) / (ZOOM_END - ZOOM_START));
+      const zoom = 1 + easeOut(zoomT) * ZOOM_BOOST;
+
       ctx.save();
       ctx.globalAlpha = Math.min(1, smooth.visible);
-      fullyRevealed = drawInvitationOnLeaf(smooth.cx, smooth.cy, smooth.w, smooth.h, now, dt);
+      fullyRevealed = drawInvitationOnLeaf(smooth.cx, smooth.cy, smooth.w * zoom, smooth.h * zoom, now, dt);
       ctx.restore();
     }
 
@@ -407,7 +429,24 @@
     guestName = v || "Friend";
   }
 
+  // Prefers a designer-provided e-invitation image (assets/e-invitation.png)
+  // over the generated text card. Drop a PNG at that path and it takes over
+  // automatically — no code changes needed.
   function populateECard() {
+    const eCardImage = document.getElementById("eCardImage");
+    const eCardContent = document.getElementById("eCardContent");
+    const probe = new Image();
+    probe.onload = () => {
+      eCardImage.src = probe.src;
+      eCardImage.hidden = false;
+      eCardContent.hidden = true;
+    };
+    probe.onerror = () => {
+      eCardImage.hidden = true;
+      eCardContent.hidden = false;
+    };
+    probe.src = "assets/e-invitation.png";
+
     document.getElementById("eCardHero").textContent = INVITE_CONFIG.heroWord;
     document.getElementById("eCardGreeting").textContent = guestName;
     document.getElementById("eCardMessage").textContent = INVITE_CONFIG.message;

@@ -131,7 +131,15 @@ button.secondary {
   overflow-y: auto;
   background: radial-gradient(circle at 50% 0%, #16241a 0%, #0a0f0a 70%);
   color: #f3d98b;
-  padding: 3rem 1.5rem 3.5rem;
+  padding: 3rem 1.5rem 5.5rem;
+}
+
+#eCardImage {
+  display: block;
+  width: 100%;
+  max-width: 32rem;
+  margin: 0 auto;
+  height: auto;
 }
 
 #eCardContent {
@@ -223,7 +231,12 @@ button.secondary {
 }
 
 #backBtn {
-  margin: 1rem auto 0;
+  position: fixed;
+  bottom: 1.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 31;
+  background: #0a0f0a;
 }
 
 #controls {

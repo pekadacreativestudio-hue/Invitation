@@ -12,9 +12,15 @@ scrollable e-invitation with the date, venue, dress code, and time line.
   pixels (tuned for a betel leaf's color), then finds the largest connected
   blob of those pixels via flood fill. That gives a bounding box for "the leaf".
 - `js/app.js` smooths that box frame-to-frame (so the text doesn't jitter),
-  clips a soft dark scrim + the invitation text to an ellipse matching the
-  leaf's box, and redraws it every frame — giving the effect of text
-  "painted" onto the leaf.
+  clips a soft dark scrim + the invitation text to a heart-shaped path
+  matching a real betel leaf's silhouette (`betelLeafPath`), and redraws it
+  every frame — giving the effect of text "painted" onto the leaf. The scrim
+  is intentionally light — just enough for gold text to read against the
+  leaf's own color, not a heavy overlay.
+- As the leaf fills more of the frame (you move the phone closer), the whole
+  invitation zooms in beyond its tracked size (see `ZOOM_START`/`ZOOM_END`/
+  `ZOOM_BOOST` in `js/app.js`) so the text stays comfortably readable up
+  close instead of just scaling 1:1 with the leaf.
 - No build step and no runtime dependencies besides two Google Fonts
   (`Great Vibes` for the script hero word, `Cormorant Garamond` for the
   supporting serif text), loaded via a `<link>` in `index.html` — the page
@@ -30,9 +36,18 @@ scrollable e-invitation with the date, venue, dress code, and time line.
   in script, right under the hero word.
 - Once every line has finished writing, an **Accept Invitation** button fades
   in (`js/app.js`, driven by the reveal-complete flag). Tapping it stops the
-  camera and shows `#eCard` — a plain HTML/CSS page populated from
-  `INVITE_CONFIG` with the full message, date, venue, dress code, and time
-  line. A **Back** button returns to the landing screen.
+  camera and shows `#eCard`. By default that's a plain HTML/CSS page
+  populated from `INVITE_CONFIG` with the full message, date, venue, dress
+  code, and time line — but if a file exists at `assets/e-invitation.png`,
+  that image is shown instead automatically (see below). A **Back** button
+  returns to the landing screen.
+
+## Using a designed e-invitation image instead of the generated card
+
+Drop your own designed e-invitation as a PNG at `assets/e-invitation.png`.
+`js/app.js` probes for that file when Accept is tapped — if it loads, the
+image replaces the generated text card entirely; if it's missing, the text
+card is shown as a fallback. No code changes needed, just add the file.
 
 This is a color-based heuristic, not real object recognition. It works best
 with a single leaf held against skin or a plain background, good lighting,
