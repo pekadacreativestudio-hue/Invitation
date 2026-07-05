@@ -219,10 +219,10 @@
       ctx.font = msgFontFor(msgFontSize);
     }
 
-    let pendingGap = 0.085; // gap before the first message line stands in for the blank line after the hero word
+    let pendingGap = 0.10625; // gap before the first message line stands in for the blank line after the hero word
     INVITE_CONFIG.message.forEach((line) => {
       if (line === "") {
-        pendingGap += 0.065; // blank spacer: fold into the gap before the next real line
+        pendingGap += 0.08125; // blank spacer: fold into the gap before the next real line
         return;
       }
       ctx.font = msgFontFor(msgFontSize);
@@ -237,11 +237,11 @@
           family: SERIF_FONT,
           italic: true,
           gold: false,
-          gap: i === 0 ? pendingGap : 0.05,
+          gap: i === 0 ? pendingGap : 0.0625,
           width: ctx.measureText(l).width,
         });
       });
-      pendingGap = 0.05;
+      pendingGap = 0.0625;
     });
 
     const totalHeight = rendered.reduce((sum, r) => sum + unit * r.gap, 0);
@@ -314,9 +314,23 @@
   // Computes and freezes the layout exactly once per "capture" — using the
   // leaf's size at that instant as the reference frame. Every later frame
   // just scales/rotates/pans this frozen layout to match the live leaf.
-  function lockInvitation(refRx, refRy) {
+  function lockInvitation(refRx, refRy, screenCy) {
     const safeCyLocal = refRy * 0.06;
-    const safeHalfHeightLocal = refRy * 0.46;
+    let safeHalfHeightLocal = refRy * 0.46;
+
+    // The Accept Invitation button sits at a fixed spot near the bottom of
+    // the viewport, independent of the leaf's own coordinate space. At the
+    // zoom level active when the reveal triggers (FILL_TRIGGER_THRESHOLD is
+    // well past ZOOM_END, so zoom is already maxed out), local space maps
+    // ~1:1 to screen pixels — so cap how far down the safe band can reach
+    // in absolute screen terms too, or the last line ends up hidden behind
+    // the button instead of just being clipped by the leaf shape.
+    const BUTTON_RESERVE_PX = 150;
+    const maxBottomLocal = canvas.height - BUTTON_RESERVE_PX - screenCy - safeCyLocal;
+    if (maxBottomLocal < safeHalfHeightLocal) {
+      safeHalfHeightLocal = Math.max(refRy * 0.15, maxBottomLocal);
+    }
+
     const { items, totalHeight } = layoutInvitation(0, safeCyLocal, refRx, safeHalfHeightLocal);
     items.forEach((item, i) => {
       item._startAt = i * ITEM_STAGGER_MS;
@@ -485,14 +499,18 @@
       revealStart = now;
       wasHidden = false;
       justLocked = true;
-      // smooth.w/h may still be mid-convergence this early (the EMA only
-      // started averaging once the leaf came into view, same issue the
+      // smooth.cx/cy/w/h may still be mid-convergence this early (the EMA
+      // only started averaging once the leaf came into view, same issue the
       // rotation tracking used to have) — snap to the instantaneous
-      // reading so the frozen layout's reference size matches the leaf's
-      // real current size, not a lagging average still catching up. Without
-      // this, the layout could freeze at a too-small size and wrap text
-      // more tightly than the leaf actually needs.
+      // reading so the frozen layout's reference size *and position* match
+      // the leaf's real current state, not a lagging average still catching
+      // up. Without this, the layout could freeze at a too-small size and
+      // wrap text more tightly than the leaf actually needs, or the
+      // button-overlap safety margin in lockInvitation could be computed
+      // against a still-converging (and very wrong) screen position.
       if (detection) {
+        smooth.cx = detection.cx * canvas.width;
+        smooth.cy = detection.cy * canvas.height;
         smooth.w = detection.w * canvas.width;
         smooth.h = detection.h * canvas.height;
       }
@@ -510,7 +528,7 @@
     const ryNow = (smooth.h * zoom) / 2;
 
     if (justLocked) {
-      lockInvitation(rxNow, ryNow);
+      lockInvitation(rxNow, ryNow, smooth.cy);
     }
 
     let fullyRevealed = false;

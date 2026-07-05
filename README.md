@@ -73,12 +73,19 @@ time line).
   your hand moves. (Rotation tracking based on the leaf's estimated tilt
   was tried and removed — it didn't reliably match the leaf's actual
   visible angle in practice, so the invitation stays upright and just
-  follows the leaf's position/size.) The tracked size (`smooth.w`/`smooth.h`)
+  follows the leaf's position/size.) The tracked box (`smooth.cx`/`cy`/`w`/`h`)
   is snapped to the instantaneous detection at the exact lock moment rather
   than used as-is — its smoothing average hasn't fully caught up that early
   (same class of issue the old rotation tracking had), and locking with a
-  still-converging, too-small size would wrap the message tighter than the
-  leaf actually allows, permanently.
+  still-converging, wrong position/size would wrap the message tighter than
+  the leaf actually allows, or throw off the button-overlap safety margin
+  below, permanently.
+- Two safety clamps in `layoutInvitation`/`lockInvitation` (`js/app.js`)
+  keep content from ever running off-screen or behind the Accept button:
+  wrap widths are capped to the real screen width (not just a fraction of
+  the leaf's own — possibly zoom-inflated — reference size), and the safe
+  vertical band is capped so its lowest point stays above a reserved zone
+  near the bottom of the viewport where the Accept Invitation button sits.
 - Once every item has finished materializing, an **Accept Invitation** button
   fades in (`js/app.js`, driven by the reveal-complete flag). Tapping it stops
   the camera and shows `#eCard`, which displays `assets/e-invitation.png`
