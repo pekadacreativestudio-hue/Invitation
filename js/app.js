@@ -24,14 +24,26 @@
   const smooth = { cx: 0.5, cy: 0.5, w: 0.4, h: 0.4, visible: 0 };
   const SMOOTH_ALPHA = 0.18;
 
-  // Writing-reveal animation state: restarts each time the leaf reappears
-  // after being hidden, so the invitation "writes itself" anew each time.
+  // Magical-reveal animation state: restarts each time the leaf reappears
+  // after being hidden, so the invitation materializes anew each time. Each
+  // item (hero logo/word, message lines) fades + scales in with a sparkle
+  // burst, staggered in a cascade rather than a per-character typewriter.
   let revealStart = null;
   let wasHidden = true;
   const HIDE_THRESHOLD = 0.12;
   const SHOW_TRIGGER_THRESHOLD = 0.55;
-  const MS_PER_CHAR = 42;
-  const MIN_LINE_MS = 260;
+  const ITEM_STAGGER_MS = 260;
+  const ITEM_DURATION_MS = 700;
+
+  // An uploaded logo (assets/hero-logo.png) is drawn on the leaf in place of
+  // the hero word text, if present. Probed once at load time; falls back to
+  // the styled text hero word if missing.
+  let heroLogo = null;
+  const heroLogoProbe = new Image();
+  heroLogoProbe.onload = () => {
+    heroLogo = heroLogoProbe;
+  };
+  heroLogoProbe.src = "assets/hero-logo.png";
 
   // The text layout (wrapping, font sizes, positions) is computed ONCE per
   // "capture" — the moment the leaf locks in — and cached here. After that,
@@ -154,120 +166,105 @@
     return lines;
   }
 
-  // Lays out the invitation blocks (hero word, ornaments, subtitle, details)
-  // into individual renderable items with resolved font size and vertical
-  // position (relative to the given center/half-height), but does not paint
-  // anything yet. Returns the items plus the total height they need, so the
-  // caller can shrink everything uniformly if it doesn't fit.
+  // Lays out just the hero (logo image, or styled hero word) and the message
+  // body into individual renderable items with resolved size/position
+  // (relative to the given center/half-height), but does not paint anything
+  // yet. Returns the items plus the total height they need, so the caller
+  // can shrink everything uniformly if it doesn't fit.
   function layoutInvitation(cx, cy, rx, ry) {
     const unit = ry * 2;
-    const ornamentWidth = rx * 2 * 0.5;
-    const blocks = [
-      { type: "ornament", width: ornamentWidth, gap: 0.075 },
-      { type: "text", text: INVITE_CONFIG.heroWord, size: 0.062, weight: "700", family: SERIF_FONT, gap: 0.095, maxWidthFactor: 0.74, gold: true },
-      { type: "text", text: guestName, size: 0.1, weight: "400", family: CURSIVE_FONT, gap: 0.13, maxWidthFactor: 0.7 },
-      { type: "ornament", width: ornamentWidth * 0.8, gap: 0.07 },
-      { type: "text", text: INVITE_CONFIG.message, size: 0.04, weight: "400", family: SERIF_FONT, italic: true, gap: 0.062, maxWidthFactor: 0.64 },
-      { type: "text", text: "Date : " + INVITE_CONFIG.date, size: 0.044, weight: "600", family: SERIF_FONT, gap: 0.072, maxWidthFactor: 0.64 },
-      { type: "text", text: INVITE_CONFIG.venue, size: 0.042, weight: "400", family: SERIF_FONT, gap: 0.062, maxWidthFactor: 0.62 },
-    ];
-
     const rendered = [];
-    for (const b of blocks) {
-      if (b.type === "ornament") {
-        rendered.push({ type: "ornament", width: b.width, gap: b.gap });
-        continue;
-      }
-      const maxWidthPx = rx * 2 * (b.maxWidthFactor || 0.78);
-      let fontSize = Math.max(8, unit * b.size);
-      const fontFor = (size) => (b.italic ? "italic " : "normal ") + b.weight + " " + size + "px " + b.family;
+
+    const heroMaxWidthPx = rx * 2 * 0.74;
+    if (heroLogo) {
+      const heroMaxHeightPx = unit * 0.22;
+      const scale = Math.min(heroMaxWidthPx / heroLogo.naturalWidth, heroMaxHeightPx / heroLogo.naturalHeight);
+      rendered.push({
+        type: "logo",
+        img: heroLogo,
+        width: heroLogo.naturalWidth * scale,
+        height: heroLogo.naturalHeight * scale,
+        gap: 0.13,
+      });
+    } else {
+      let fontSize = Math.max(8, unit * 0.062);
+      const fontFor = (size) => "normal 700 " + size + "px " + SERIF_FONT;
       ctx.font = fontFor(fontSize);
-      const longestWord = b.text.split(" ").reduce((a, w) => (ctx.measureText(w).width > ctx.measureText(a).width ? w : a), "");
-      while (fontSize > 8 && ctx.measureText(longestWord).width > maxWidthPx) {
+      const longestWord = INVITE_CONFIG.heroWord
+        .split(" ")
+        .reduce((a, w) => (ctx.measureText(w).width > ctx.measureText(a).width ? w : a), "");
+      while (fontSize > 8 && ctx.measureText(longestWord).width > heroMaxWidthPx) {
         fontSize *= 0.92;
         ctx.font = fontFor(fontSize);
       }
       ctx.font = fontFor(fontSize);
-      const lines = wrapLines(b.text, maxWidthPx);
-      for (const l of lines) {
+      for (const l of wrapLines(INVITE_CONFIG.heroWord, heroMaxWidthPx)) {
         ctx.font = fontFor(fontSize);
         rendered.push({
           type: "text",
           text: l,
           size: fontSize,
-          weight: b.weight,
-          family: b.family,
-          italic: !!b.italic,
-          gold: !!b.gold,
-          gap: b.gap,
+          weight: "700",
+          family: SERIF_FONT,
+          italic: false,
+          gold: true,
+          gap: 0.095,
           width: ctx.measureText(l).width,
         });
       }
     }
+
+    const msgMaxWidthPx = rx * 2 * 0.66;
+    let msgFontSize = Math.max(8, unit * 0.042);
+    const msgFontFor = (size) => "italic 400 " + size + "px " + SERIF_FONT;
+    ctx.font = msgFontFor(msgFontSize);
+    const longestMsgWord = INVITE_CONFIG.message
+      .split(" ")
+      .reduce((a, w) => (ctx.measureText(w).width > ctx.measureText(a).width ? w : a), "");
+    while (msgFontSize > 8 && ctx.measureText(longestMsgWord).width > msgMaxWidthPx) {
+      msgFontSize *= 0.92;
+      ctx.font = msgFontFor(msgFontSize);
+    }
+    ctx.font = msgFontFor(msgFontSize);
+    wrapLines(INVITE_CONFIG.message, msgMaxWidthPx).forEach((l, i) => {
+      ctx.font = msgFontFor(msgFontSize);
+      rendered.push({
+        type: "text",
+        text: l,
+        size: msgFontSize,
+        weight: "400",
+        family: SERIF_FONT,
+        italic: true,
+        gold: false,
+        gap: i === 0 ? 0.16 : 0.062, // extra gap before the first message line stands in for the blank line
+        width: ctx.measureText(l).width,
+      });
+    });
 
     const totalHeight = rendered.reduce((sum, r) => sum + unit * r.gap, 0);
     let y = cy - totalHeight / 2;
     for (const r of rendered) {
       y += (unit * r.gap) / 2;
       r.y = y;
-      if (r.type === "text") r.x0 = cx - r.width / 2;
+      r.x0 = cx - r.width / 2;
       y += (unit * r.gap) / 2;
     }
     return { items: rendered, totalHeight };
   }
 
-  // A symmetric filigree divider: two curled arms plus a center diamond,
-  // drawn stroke-first so it can "grow" outward from the middle on reveal.
-  function paintOrnament(item, cx, progress) {
-    if (progress <= 0) return;
-    const width = item.width * easeOut(clamp01(progress));
-    const halfW = width / 2;
-    const armLen = halfW * 0.82;
-    const y = item.y;
-
-    ctx.save();
-    ctx.globalAlpha *= Math.min(1, progress * 1.6);
-    ctx.strokeStyle = "rgba(243,217,139,0.85)";
-    ctx.lineWidth = Math.max(1, width * 0.0065);
-    ctx.lineCap = "round";
-    ctx.shadowColor = "rgba(255,195,80,0.75)";
-    ctx.shadowBlur = width * 0.03;
-
-    ctx.beginPath();
-    ctx.moveTo(cx - width * 0.05, y);
-    ctx.quadraticCurveTo(cx - armLen * 0.55, y - width * 0.025, cx - armLen, y);
-    ctx.quadraticCurveTo(cx - armLen * 1.06, y + width * 0.028, cx - armLen * 0.9, y + width * 0.032);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(cx + width * 0.05, y);
-    ctx.quadraticCurveTo(cx + armLen * 0.55, y - width * 0.025, cx + armLen, y);
-    ctx.quadraticCurveTo(cx + armLen * 1.06, y + width * 0.028, cx + armLen * 0.9, y + width * 0.032);
-    ctx.stroke();
-
-    const d = width * 0.022;
-    ctx.beginPath();
-    ctx.moveTo(cx, y - d);
-    ctx.lineTo(cx + d, y);
-    ctx.lineTo(cx, y + d);
-    ctx.lineTo(cx - d, y);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(243,217,139,0.9)";
-    ctx.fill();
-
-    ctx.restore();
-  }
-
-  // Paints one line with a soft gold bloom, a crisp fill (gradient for the
-  // hero word), and a moving highlight sweep, clipped to its reveal progress.
+  // Paints one line materializing in: fades and settles from slightly
+  // oversized down to full size (rather than a left-to-right typewriter
+  // wipe), with a soft gold bloom, a crisp fill (gradient for the hero
+  // word), and a moving highlight sweep once revealed.
   function paintLine(line, cx, progress, now) {
-    if (progress <= 0) return null;
+    if (progress <= 0) return;
+    const eased = easeOut(clamp01(progress));
 
-    const revealWidth = line.width * clamp01(progress);
     ctx.save();
-    ctx.beginPath();
-    ctx.rect(line.x0, line.y - line.size, revealWidth, line.size * 2.2);
-    ctx.clip();
+    ctx.globalAlpha *= eased;
+    ctx.translate(cx, line.y);
+    ctx.scale(1.18 - 0.18 * eased, 1.18 - 0.18 * eased);
+    ctx.translate(-cx, -line.y);
 
     ctx.font = (line.italic ? "italic " : "normal ") + line.weight + " " + line.size + "px " + line.family;
     ctx.textAlign = "center";
@@ -304,11 +301,24 @@
     ctx.restore();
 
     ctx.restore();
+  }
 
-    if (progress < 1) {
-      return { x: line.x0 + revealWidth, y: line.y };
-    }
-    return null;
+  // Paints the hero logo materializing in the same way as a text line:
+  // fade + settle from slightly oversized, with a soft gold glow.
+  function paintLogo(item, progress) {
+    if (progress <= 0) return;
+    const eased = easeOut(clamp01(progress));
+    const cx = item.x0 + item.width / 2;
+    const cy = item.y;
+
+    ctx.save();
+    ctx.globalAlpha *= eased;
+    ctx.translate(cx, cy);
+    ctx.scale(1.18 - 0.18 * eased, 1.18 - 0.18 * eased);
+    ctx.shadowColor = "rgba(255, 195, 80, 0.65)";
+    ctx.shadowBlur = item.height * 0.18;
+    ctx.drawImage(item.img, -item.width / 2, -item.height / 2, item.width, item.height);
+    ctx.restore();
   }
 
   // Computes and freezes the layout exactly once per "capture" — using the
@@ -318,6 +328,10 @@
     const safeCyLocal = refRy * 0.06;
     const safeHalfHeightLocal = refRy * 0.46;
     const { items, totalHeight } = layoutInvitation(0, safeCyLocal, refRx, safeHalfHeightLocal);
+    items.forEach((item, i) => {
+      item._startAt = i * ITEM_STAGGER_MS;
+      item._sparked = false;
+    });
     const fitScale = Math.min(1, (safeHalfHeightLocal * 2) / totalHeight);
     cachedLayout = { items, refRx, refRy, safeCyLocal, fitScale };
   }
@@ -347,27 +361,37 @@
       ctx.translate(0, -scy);
     }
 
-    let cursor = 0;
-    let penTip = null;
     let allDone = revealStart != null;
+    const transformForSparkles = ctx.getTransform();
     for (const item of cachedLayout.items) {
-      const durationMs = item.type === "ornament" ? 450 : Math.max(MIN_LINE_MS, item.text.length * MS_PER_CHAR);
-      const elapsed = revealStart == null ? durationMs : now - revealStart - cursor;
-      const progress = clamp01(elapsed / durationMs);
+      const elapsed = revealStart == null ? ITEM_DURATION_MS : now - revealStart - item._startAt;
+      const progress = clamp01(elapsed / ITEM_DURATION_MS);
       if (progress < 1) allDone = false;
-      if (item.type === "ornament") {
-        paintOrnament(item, 0, progress);
-      } else {
-        const tip = paintLine(item, 0, progress, now);
-        if (tip) penTip = tip;
-      }
-      cursor += durationMs;
-    }
 
-    if (penTip) {
-      const m = ctx.getTransform();
-      const screenTip = m.transformPoint(new DOMPoint(penTip.x, penTip.y));
-      Sparkles.spawnBurst(screenTip.x, screenTip.y, 1, { life: 500 + Math.random() * 300, size: 1.5 + Math.random() * 2, spread: 40, rise: 15 });
+      // The instant an item starts materializing, scatter a burst of
+      // sparkles across it — once per capture — for the "magic appearing"
+      // feel, instead of a single point trailing a typewriter cursor.
+      if (!item._sparked && progress > 0) {
+        item._sparked = true;
+        const itemHeight = item.height || item.size * 1.4 || 20;
+        for (let i = 0; i < 6; i++) {
+          const px = item.x0 + Math.random() * item.width;
+          const py = item.y + (Math.random() - 0.5) * itemHeight;
+          const screenPt = transformForSparkles.transformPoint(new DOMPoint(px, py));
+          Sparkles.spawnBurst(screenPt.x, screenPt.y, 1, {
+            life: 550 + Math.random() * 350,
+            size: 1.5 + Math.random() * 2.2,
+            spread: 60,
+            rise: 25,
+          });
+        }
+      }
+
+      if (item.type === "logo") {
+        paintLogo(item, progress);
+      } else {
+        paintLine(item, 0, progress, now);
+      }
     }
 
     // Clip region is already the rotated/scaled leaf shape (set above, still

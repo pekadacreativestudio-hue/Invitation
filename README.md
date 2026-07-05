@@ -1,10 +1,11 @@
 # AR Betel Leaf Invitation
 
 Open this page on a phone, type your name, then hold a real betel leaf on
-your palm and point the camera at it. Your personalized invitation writes
-itself onto the leaf and tracks it as you move your hand. Once the writing
-finishes, an **Accept Invitation** button appears; tapping it opens a full
-scrollable e-invitation with the date, venue, dress code, and time line.
+your palm and point the camera at it. The hero title and invitation message
+materialize onto the leaf in a magical fade/sparkle effect, and track it as
+you move your hand. Once fully appeared, an **Accept Invitation** button
+fades in; tapping it opens a full scrollable e-invitation with the date,
+venue, dress code, and time line.
 
 ## How it works
 
@@ -30,12 +31,20 @@ scrollable e-invitation with the date, venue, dress code, and time line.
   Camera access uses the standard `getUserMedia` API, which requires HTTPS
   (or `localhost`) — GitHub Pages serves over HTTPS, so it works out of the box.
 - `js/sparkle-fx.js` is a small particle system: twinkling gold glints drift
-  ambiently around the leaf and trail the "pen tip" while text is writing in.
-- The text itself writes on letter-by-letter (per line), with a gold bloom,
-  a moving highlight sweep, and hand-drawn filigree ornaments above/below the
-  hero word — restarting each time the leaf reappears after being hidden.
-  The guest's name (typed on the landing screen) is rendered as its own line
-  in script, right under the hero word.
+  ambiently around the leaf, plus a scattered burst the instant each item
+  starts appearing.
+- Only the hero word and the invitation message appear on the leaf (kept
+  short on purpose — the heart shape narrows a lot at the top and bottom,
+  so less content fits comfortably there). The guest's name, date, venue,
+  dress code, and time line only appear on the full e-invitation after
+  Accept is tapped.
+- Each item materializes with a fade + scale-settle (from slightly oversized
+  down to full size) plus a gold bloom and moving highlight sweep, cascading
+  top to bottom with overlapping stagger — not a left-to-right typewriter —
+  restarting each time the leaf reappears after being hidden.
+- If a file exists at `assets/hero-logo.png`, it's drawn on the leaf (with
+  the same materialize animation) in place of the styled hero word text —
+  probed once at page load, falling back to text if missing.
 - The wrapping/font-size layout is computed **once**, the moment the leaf
   locks in (`lockInvitation` in `js/app.js`), using the leaf's size at that
   instant as the reference frame. After that, moving/zooming/tilting the
@@ -47,8 +56,8 @@ scrollable e-invitation with the date, venue, dress code, and time line.
   ambiguous by 180° (it's a line, not a direction), only the *change* in
   tilt since lock is used — not the raw absolute angle — and it's clamped
   to ±35°, so a noisy reading can't flip the invitation upside down.
-- Once every line has finished writing, an **Accept Invitation** button fades
-  in (`js/app.js`, driven by the reveal-complete flag). Tapping it stops the
+- Once every item has finished materializing, an **Accept Invitation** button
+  fades in (`js/app.js`, driven by the reveal-complete flag). Tapping it stops the
   camera and shows `#eCard`. By default that's a plain HTML/CSS page
   populated from `INVITE_CONFIG` with the full message, date, venue, dress
   code, and time line — but if a file exists at `assets/e-invitation.png`,
@@ -101,10 +110,10 @@ const INVITE_CONFIG = {
 };
 ```
 
-`heroWord` and `message` appear on the leaf (along with the guest's name and
-date/venue); `dressCode` and `timeline` appear only on the full e-invitation
-after Accept is tapped, since they're too much text to fit gracefully on a
-small leaf-tracked AR overlay.
+`heroWord` and `message` appear on the leaf; `date`, `venue`, `dressCode`,
+and `timeline` appear only on the full e-invitation after Accept is tapped,
+since they're too much text to fit gracefully on a small leaf-tracked AR
+overlay.
 
 ## Run it locally
 
