@@ -53,27 +53,12 @@
 
   // The text layout (wrapping, font sizes, positions) is computed ONCE per
   // "capture" — the moment the leaf locks in — and cached here. After that,
-  // the leaf moving/zooming/tilting only pans, scales, and rotates this
-  // frozen layout; it never re-wraps or re-arranges.
+  // the leaf moving/zooming only pans and scales this frozen layout; it
+  // never re-wraps or re-arranges. (Rotation tracking was tried and
+  // removed — the detector's angle estimate didn't reliably match the
+  // leaf's actual visible tilt, so the invitation is kept upright and
+  // simply follows the leaf's position/size.)
   let cachedLayout = null;
-
-  // Leaf tilt tracking: the detector's axis angle is ambiguous by 180° (it's
-  // a line, not a direction), so we track it as a smoothed double-angle unit
-  // vector, and only ever use the *change* since lock (not the raw absolute
-  // angle) — clamped, so a noisy detection can't flip the invitation upside
-  // down or spin it wildly.
-  let angleVec = { cos: 1, sin: 0 };
-  let lockAngleBaseline = 0;
-  const ANGLE_ALPHA = 0.12;
-  const MIN_ANGLE_CONFIDENCE = 0.22;
-  const MAX_TILT = (18 * Math.PI) / 180;
-
-  function wrapAxisDelta(delta) {
-    let d = delta;
-    while (d > Math.PI / 2) d -= Math.PI;
-    while (d <= -Math.PI / 2) d += Math.PI;
-    return d;
-  }
 
   const CURSIVE_FONT = "'Great Vibes', 'Brush Script MT', 'Segoe Script', cursive";
   const SERIF_FONT = "'Cormorant Garamond', Georgia, 'Times New Roman', serif";
@@ -313,14 +298,13 @@
     cachedLayout = { items, refRx, refRy, safeCyLocal, fitScale };
   }
 
-  function drawInvitationOnLeaf(cx, cy, w, h, angle, now, dt) {
+  function drawInvitationOnLeaf(cx, cy, w, h, now, dt) {
     if (!cachedLayout) return false;
     const rx = w / 2;
     const ry = h / 2;
 
     ctx.save();
     ctx.translate(cx, cy);
-    ctx.rotate(angle);
     ctx.scale(rx / cachedLayout.refRx, ry / cachedLayout.refRy);
 
     // The heart shape narrows sharply at the top notch and the bottom tip,
@@ -417,12 +401,6 @@
       smooth.h = lerp(smooth.h, ph, SMOOTH_ALPHA);
       smooth.visible = lerp(smooth.visible, 1, 0.25);
       hint.hidden = true;
-
-      if (detection.angleConfidence > MIN_ANGLE_CONFIDENCE) {
-        const a = ANGLE_ALPHA * detection.angleConfidence;
-        angleVec.cos = lerp(angleVec.cos, Math.cos(2 * detection.angle), a);
-        angleVec.sin = lerp(angleVec.sin, Math.sin(2 * detection.angle), a);
-      }
     } else {
       smooth.visible = lerp(smooth.visible, 0, 0.1);
       if (smooth.visible < 0.05) drawHintReticle();
@@ -442,34 +420,15 @@
     } else if (wasHidden && smooth.visible > SHOW_TRIGGER_THRESHOLD) {
       revealStart = now;
       wasHidden = false;
-      // The angle EMA may still be mid-convergence this early (it only
-      // started accumulating once the leaf came into view) — snap it to
-      // the instantaneous reading so "zero rotation" is defined from the
-      // real current tilt, not a lagging average that would otherwise keep
-      // drifting toward the true value for the next second or two, which
-      // would look like spurious rotation even on a leaf that never moved.
-      if (detection) {
-        angleVec = { cos: Math.cos(2 * detection.angle), sin: Math.sin(2 * detection.angle) };
-      }
-      lockAngleBaseline = 0.5 * Math.atan2(angleVec.sin, angleVec.cos);
       lockInvitation(rxNow, ryNow);
       Sparkles.clear();
     }
-
-    // Rotation applied to the frozen layout is the *change* in leaf tilt
-    // since it was captured — not the raw absolute angle — so an ambiguous
-    // or noisy detection can't flip the invitation upside down.
-    const absoluteAngle = 0.5 * Math.atan2(angleVec.sin, angleVec.cos);
-    const renderAngle = Math.max(
-      -MAX_TILT,
-      Math.min(MAX_TILT, wrapAxisDelta(absoluteAngle - lockAngleBaseline))
-    );
 
     let fullyRevealed = false;
     if (smooth.visible > 0.05) {
       ctx.save();
       ctx.globalAlpha = Math.min(1, smooth.visible);
-      fullyRevealed = drawInvitationOnLeaf(smooth.cx, smooth.cy, rxNow * 2, ryNow * 2, renderAngle, now, dt);
+      fullyRevealed = drawInvitationOnLeaf(smooth.cx, smooth.cy, rxNow * 2, ryNow * 2, now, dt);
       ctx.restore();
     }
 
@@ -478,44 +437,6 @@
     }
 
     requestAnimationFrame(frame);
-  }
-
-  // Prefers a designer-provided e-invitation image (assets/e-invitation.png)
-  // over the generated text card. Drop a PNG at that path and it takes over
-  // automatically — no code changes needed.
-  function populateECard() {
-    const eCardImage = document.getElementById("eCardImage");
-    const eCardContent = document.getElementById("eCardContent");
-    const probe = new Image();
-    probe.onload = () => {
-      eCardImage.src = probe.src;
-      eCardImage.hidden = false;
-      eCardContent.hidden = true;
-    };
-    probe.onerror = () => {
-      eCardImage.hidden = true;
-      eCardContent.hidden = false;
-    };
-    probe.src = "assets/e-invitation.png";
-
-    document.getElementById("eCardHero").textContent = INVITE_CONFIG.heroWord;
-    document.getElementById("eCardMessage").textContent = INVITE_CONFIG.message;
-    document.getElementById("eCardDate").textContent = "Date : " + INVITE_CONFIG.date;
-    document.getElementById("eCardVenue").textContent = "Venue : " + INVITE_CONFIG.venue;
-    document.getElementById("eCardDressCode").textContent = INVITE_CONFIG.dressCode;
-
-    const list = document.getElementById("eCardTimeline");
-    list.innerHTML = "";
-    for (const item of INVITE_CONFIG.timeline) {
-      const li = document.createElement("li");
-      const time = document.createElement("span");
-      time.className = "time";
-      time.textContent = item.time;
-      const activity = document.createElement("span");
-      activity.textContent = item.activity;
-      li.append(time, activity);
-      list.appendChild(li);
-    }
   }
 
   startBtn.addEventListener("click", async () => {
@@ -540,7 +461,6 @@
     running = false;
     stopCamera();
     acceptBtn.classList.remove("visible");
-    populateECard();
     eCard.hidden = false;
   });
 
@@ -553,8 +473,6 @@
     revealStart = null;
     wasHidden = true;
     cachedLayout = null;
-    angleVec = { cos: 1, sin: 0 };
-    lockAngleBaseline = 0;
     Sparkles.clear();
   });
 })();

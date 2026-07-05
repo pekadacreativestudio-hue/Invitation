@@ -1,8 +1,6 @@
-Drop your designed e-invitation image here as `e-invitation.png`.
-
-When present, `js/app.js` shows this image on the e-invitation screen
-(after tapping "Accept Invitation") instead of the generated text card —
-no code changes needed, it's picked up automatically.
+`e-invitation.png` is required — it's shown directly on the e-invitation
+screen (after tapping "Accept Invitation"). There is no generated fallback
+card; replace this file to change what's shown there.
 
 The hero word on the leaf is rendered as text (`Great Vibes` script font, gold)
 rather than an uploaded logo image — no logo file is used there anymore.

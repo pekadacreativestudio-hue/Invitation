@@ -40,7 +40,6 @@ const LeafDetector = (() => {
       if (!mask[start] || visited[start]) continue;
 
       let minX = w, maxX = 0, minY = h, maxY = 0, size = 0;
-      let sumX = 0, sumY = 0, sumXX = 0, sumYY = 0, sumXY = 0;
       stack.length = 0;
       stack.push(start);
       visited[start] = 1;
@@ -50,11 +49,6 @@ const LeafDetector = (() => {
         const x = idx % w;
         const y = (idx / w) | 0;
         size++;
-        sumX += x;
-        sumY += y;
-        sumXX += x * x;
-        sumYY += y * y;
-        sumXY += x * y;
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
         if (y < minY) minY = y;
@@ -74,34 +68,11 @@ const LeafDetector = (() => {
 
       if (size > bestSize) {
         bestSize = size;
-        best = { minX, maxX, minY, maxY, size, sumX, sumY, sumXX, sumYY, sumXY };
+        best = { minX, maxX, minY, maxY, size };
       }
     }
 
     return best;
-  }
-
-  // PCA orientation of the blob's major axis, in radians. Ambiguous by 180°
-  // (a line, not a direction) and correcting for the sample grid's aspect
-  // ratio possibly differing from the source video's. Also returns a 0-1
-  // confidence (how elongated the blob is) since a near-circular blob has
-  // no meaningful axis and would otherwise produce a noisy angle.
-  function blobOrientation(blob, scaleX, scaleY) {
-    const n = blob.size;
-    const meanX = blob.sumX / n;
-    const meanY = blob.sumY / n;
-    let mu20 = blob.sumXX / n - meanX * meanX;
-    let mu02 = blob.sumYY / n - meanY * meanY;
-    let mu11 = blob.sumXY / n - meanX * meanY;
-    // Correct for independent x/y scaling between sample grid and source video.
-    mu20 *= scaleX * scaleX;
-    mu02 *= scaleY * scaleY;
-    mu11 *= scaleX * scaleY;
-
-    const angle = 0.5 * Math.atan2(2 * mu11, mu20 - mu02);
-    const spread = mu20 + mu02;
-    const eccentricity = spread > 1e-6 ? Math.sqrt((mu20 - mu02) ** 2 + 4 * mu11 * mu11) / spread : 0;
-    return { angle, confidence: Math.max(0, Math.min(1, eccentricity)) };
   }
 
   // Returns { x, y, w, h, cx, cy } in [0,1] normalized frame coordinates,
@@ -133,8 +104,6 @@ const LeafDetector = (() => {
     const density = blob.size / (bw * bh);
     if (density < 0.25) return null;
 
-    const { angle, confidence } = blobOrientation(blob, videoEl.videoWidth / SAMPLE_W, videoEl.videoHeight / SAMPLE_H);
-
     return {
       x: blob.minX / SAMPLE_W,
       y: blob.minY / SAMPLE_H,
@@ -142,8 +111,6 @@ const LeafDetector = (() => {
       h: bh / SAMPLE_H,
       cx: (blob.minX + bw / 2) / SAMPLE_W,
       cy: (blob.minY + bh / 2) / SAMPLE_H,
-      angle,
-      angleConfidence: confidence,
     };
   }
 
